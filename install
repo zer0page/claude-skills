@@ -63,7 +63,7 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   target="$TARGET_DIR/$name"
 
   if $UNINSTALL; then
-    if [ -L "$target" ]; then
+    if [ -L "$target" ] && [[ "$(readlink "$target")" == "$SKILLS_SRC/"* ]]; then
       rm "$target"
       echo "  removed $target"
     fi

@@ -26,7 +26,7 @@ LATEST_SHA=$(git rev-parse HEAD)
 REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
 ```
 
-## Loop (max N attempts, default 3)
+## Loop (max N attempts, default 5)
 
 Each attempt, first recompute `LATEST_SHA=$(git rev-parse HEAD)` (it changes after each push).
 
@@ -104,9 +104,9 @@ Poll every 10s, up to 10 minutes. If timeout, proceed without it.
 
 ### 6. Repeat or stop
 
-- If `.conclusion == "success"` + no unaddressed comments → report success and stop
+- If `.conclusion == "success"` + no unaddressed comments → proceed to Completion
 - If not last attempt → loop back to step 1
-- If last attempt → still do steps 4+5 fully (fix, react +1, commit, push), just skip looping back to step 1. Report what was fixed and any remaining comments.
+- If last attempt → still do steps 4+5 fully (fix, react +1, commit, push), just skip looping back to step 1. Report what was fixed and any remaining comments, then proceed to Completion.
 
 ## Output
 
@@ -114,3 +114,11 @@ After each attempt, report:
 - What was fixed (files + summary)
 - CI status
 - Remaining review comments (if any)
+
+## Completion
+
+When the loop finishes, present three options to the user:
+
+1. **Mark ready** — mark the PR as ready for review (remove draft status). Do not merge.
+2. **Clean up and reopen** — squash all commits on the branch into one, force-push, close the PR, and reopen a new PR with clean history.
+3. **Mark ready, squash merge, and close** — mark the PR ready, squash merge into the base branch, delete the remote branch, and switch to main locally.
