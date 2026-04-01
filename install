@@ -17,6 +17,10 @@ UNINSTALL=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "Error: --project requires a path argument" >&2
+        exit 1
+      fi
       if [[ "$2" =~ \.\. ]]; then
         echo "Error: --project path must not contain '..'" >&2
         exit 1
@@ -25,6 +29,10 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --skill)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "Error: --skill requires a name argument" >&2
+        exit 1
+      fi
       SKILL_FILTER="$2"
       shift 2
       ;;

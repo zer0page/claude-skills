@@ -13,7 +13,7 @@ Reusable [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills fo
 | `/audit` | Multi-perspective code audit — 5 reviewer personas + PM aggregation |
 | `/ci` | Watch CI + bot reviews on a PR, fix failures, push, loop until green |
 | `/brainstorming` | Transform vague ideas into validated designs through structured dialogue |
-| `/implement` | Full dev workflow — plan, audit, build, ship (orchestrates `/audit` and `/ci`) |
+| `/implement` | Full dev workflow — plan, audit, build, ship (orchestrates `/audit`, `/ci`, and `/simplify`) |
 
 ## Prerequisites
 
