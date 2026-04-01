@@ -11,8 +11,8 @@ failed=0
 cleanup() { rm -rf "$TMPDIR_BASE"; }
 trap cleanup EXIT
 
-pass() { ((passed++)); echo "  PASS: $1"; }
-fail() { ((failed++)); echo "  FAIL: $1"; }
+pass() { passed=$((passed + 1)); echo "  PASS: $1"; }
+fail() { failed=$((failed + 1)); echo "  FAIL: $1"; }
 
 # --- Test: install all skills into a project directory ---
 proj="$TMPDIR_BASE/project1"
