@@ -21,10 +21,6 @@ while [[ $# -gt 0 ]]; do
         echo "Error: --project requires a path argument" >&2
         exit 1
       fi
-      if [[ "$2" =~ \.\. ]]; then
-        echo "Error: --project path must not contain '..'" >&2
-        exit 1
-      fi
       TARGET_DIR="$2/.claude/skills"
       shift 2
       ;;
@@ -46,6 +42,12 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Validate --skill name exists in source
+if [ -n "$SKILL_FILTER" ] && [ ! -d "$SKILLS_SRC/$SKILL_FILTER" ]; then
+  echo "Error: skill '$SKILL_FILTER' not found in $SKILLS_SRC" >&2
+  exit 1
+fi
 
 if ! $UNINSTALL; then
   mkdir -p "$TARGET_DIR"
@@ -86,13 +88,6 @@ for skill_dir in "$SKILLS_SRC"/*/; do
     echo "  $name → $skill_dir"
   fi
 done
-
-if [ -n "$SKILL_FILTER" ] && ! $UNINSTALL; then
-  if [ ! -d "$SKILLS_SRC/$SKILL_FILTER" ]; then
-    echo "Error: skill '$SKILL_FILTER' not found in $SKILLS_SRC" >&2
-    exit 1
-  fi
-fi
 
 if $UNINSTALL; then
   echo "done (uninstalled)"

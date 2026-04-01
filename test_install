@@ -74,11 +74,11 @@ else
   fail "skip non-symlink — expected 'skipped'"
 fi
 
-# --- Test: --project rejects path traversal ---
-if "$INSTALL" --project "$TMPDIR_BASE/../etc" 2>/dev/null; then
-  fail "path traversal — should have been rejected"
+# --- Test: --skill rejects unknown skill name ---
+if "$INSTALL" --project "$TMPDIR_BASE" --skill nonexistent 2>/dev/null; then
+  fail "--skill unknown — should have been rejected"
 else
-  pass "path traversal — rejected"
+  pass "--skill unknown — rejected"
 fi
 
 # --- Test: unknown option exits with error ---
