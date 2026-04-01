@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Tests for the install script.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+INSTALL="$SCRIPT_DIR/install"
+TMPDIR_BASE=$(mktemp -d)
+passed=0
+failed=0
+
+cleanup() { rm -rf "$TMPDIR_BASE"; }
+trap cleanup EXIT
+
+pass() { ((passed++)); echo "  PASS: $1"; }
+fail() { ((failed++)); echo "  FAIL: $1"; }
+
+# --- Test: install all skills into a project directory ---
+proj="$TMPDIR_BASE/project1"
+mkdir -p "$proj"
+$INSTALL --project "$proj" > /dev/null
+
+for skill in "$SCRIPT_DIR"/skills/*/; do
+  name=$(basename "$skill")
+  link="$proj/.claude/skills/$name"
+  if [ -L "$link" ]; then
+    pass "install all — $name symlinked"
+  else
+    fail "install all — $name not found"
+  fi
+done
+
+# --- Test: idempotent reinstall ---
+output=$($INSTALL --project "$proj" 2>&1)
+if echo "$output" | grep -q "already linked"; then
+  pass "idempotent reinstall"
+else
+  fail "idempotent reinstall — expected 'already linked'"
+fi
+
+# --- Test: --skill filter installs only one ---
+proj2="$TMPDIR_BASE/project2"
+mkdir -p "$proj2"
+$INSTALL --project "$proj2" --skill audit > /dev/null
+
+if [ -L "$proj2/.claude/skills/audit" ]; then
+  pass "--skill filter — audit installed"
+else
+  fail "--skill filter — audit not installed"
+fi
+
+count=$(find "$proj2/.claude/skills" -maxdepth 1 -type l | wc -l | tr -d ' ')
+if [ "$count" -eq 1 ]; then
+  pass "--skill filter — only one skill installed"
+else
+  fail "--skill filter — expected 1 symlink, got $count"
+fi
+
+# --- Test: uninstall removes symlinks ---
+$INSTALL --project "$proj" --uninstall > /dev/null
+remaining=$(find "$proj/.claude/skills" -maxdepth 1 -type l 2>/dev/null | wc -l | tr -d ' ')
+if [ "$remaining" -eq 0 ]; then
+  pass "uninstall — all symlinks removed"
+else
+  fail "uninstall — $remaining symlinks remain"
+fi
+
+# --- Test: skips non-symlink targets ---
+proj3="$TMPDIR_BASE/project3"
+mkdir -p "$proj3/.claude/skills/audit"
+output=$($INSTALL --project "$proj3" --skill audit 2>&1)
+if echo "$output" | grep -q "skipped"; then
+  pass "skip non-symlink — reported skipped"
+else
+  fail "skip non-symlink — expected 'skipped'"
+fi
+
+# --- Test: --project rejects path traversal ---
+if $INSTALL --project "$TMPDIR_BASE/../etc" 2>/dev/null; then
+  fail "path traversal — should have been rejected"
+else
+  pass "path traversal — rejected"
+fi
+
+# --- Test: unknown option exits with error ---
+if $INSTALL --bogus 2>/dev/null; then
+  fail "unknown option — should have exited 1"
+else
+  pass "unknown option — rejected"
+fi
+
+# --- Summary ---
+echo ""
+echo "$passed passed, $failed failed"
+[ "$failed" -eq 0 ]
