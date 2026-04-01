@@ -9,6 +9,8 @@ End-to-end workflow for building features and updates. **Every phase is mandator
 
 `--quick` skips Phase 1 (brainstorming), Phase 3 (audit plan), and Phase 6 (audit diff) for trivial changes. All other phases are always required.
 
+**Auto-quick:** If `--quick` was not specified but the change appears trivial (single-file fix, small bug fix, minor update), use `AskUserQuestion` to ask the user whether to run with `--quick`. Do not silently skip or silently run full phases — always confirm.
+
 ## Phase 1: Brainstorm
 
 _Skipped only with `--quick`._
