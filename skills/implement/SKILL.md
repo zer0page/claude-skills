@@ -1,46 +1,53 @@
 ---
 name: implement
-description: Full development workflow — plan, audit, simplify, build, ship. Orchestrates /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use --quick to skip audits for trivial changes. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
+description: Full development workflow — brainstorm, plan, audit, simplify, build, ship. Orchestrates /brainstorming, /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use --quick to skip brainstorming and audits for trivial changes. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
 ---
 
 # /implement [description] [--quick]
 
-End-to-end workflow for building features and updates. **Every phase is mandatory and sequential — do not skip or reorder phases.** The only exception is `--quick`, which skips the two audit phases.
+End-to-end workflow for building features and updates. **Every phase is mandatory and sequential — do not skip or reorder phases.** The only exception is `--quick`, which skips brainstorming and audit phases.
 
-`--quick` skips Phase 2 and Phase 5 (both audits) for trivial changes. All other phases are always required.
+`--quick` skips Phase 1 (brainstorming), Phase 3 (audit plan), and Phase 6 (audit diff) for trivial changes. All other phases are always required.
 
-## Phase 1: Plan
+## Phase 1: Brainstorm
+
+_Skipped only with `--quick`._
+
+1. Run `/brainstorming` to explore the idea before planning
+2. Validate understanding, surface assumptions, and explore design approaches
+3. Only after the brainstorming exit criteria are met, proceed to Phase 2
+
+## Phase 2: Plan
 
 1. Enter plan mode
-2. Explore the codebase to understand the request
-3. Ask the user clarifying questions — iterate until aligned
-4. Write a concrete implementation plan
-5. Do not exit plan mode yet — next is Phase 2 (or Phase 3 if using `--quick`)
+2. Use the validated design from Phase 1 to write a concrete implementation plan
+3. Ask the user clarifying questions if anything remains unresolved
+4. Do not exit plan mode yet — next is Phase 3 (or Phase 4 if using `--quick`)
 
-## Phase 2: Audit plan
+## Phase 3: Audit plan
 
 _Skipped only with `--quick`._
 
 1. Run `/audit` on the plan file before asking the user to approve
 2. Revise the plan based on audit findings
 3. Update the plan file
-4. Only after this phase is complete, proceed to Phase 3
+4. Only after this phase is complete, proceed to Phase 4
 
 Fix findings and continue to the next phase. If a finding requires a scope or design decision change, ask the user first.
 
-## Phase 3: Gate — user approves execution
+## Phase 4: Gate — user approves execution
 
 Present the final plan and ask the user to approve before writing any code. Do not proceed without explicit approval.
 
-## Phase 4: Implement
+## Phase 5: Implement
 
 1. Exit plan mode
 2. Create a branch or worktree from main (never commit directly to main). Use a worktree when running as a parallel agent.
 3. Build the feature, following the plan
 4. Keep changes minimal and focused on the plan
-5. Commit locally with a descriptive message — do not push yet. Phase 5 comes first (or Phase 6 if `--quick`).
+5. Commit locally with a descriptive message — do not push yet. Phase 6 comes first (or Phase 7 if `--quick`).
 
-## Phase 5: Audit diff
+## Phase 6: Audit diff
 
 _Skipped only with `--quick`._
 
@@ -48,23 +55,23 @@ _Skipped only with `--quick`._
 2. Run `/audit --diff` on the changes
 3. Fix any issues found
 4. Commit the fixes
-5. Verify `git status` is clean. Only after this phase is complete, proceed to Phase 6
+5. Verify `git status` is clean. Only after this phase is complete, proceed to Phase 7
 
 Fix findings and continue to the next phase. If a finding requires a scope or design decision change, ask the user first.
 
-## Phase 6: Simplify
+## Phase 7: Simplify
 
 1. Run `/simplify` on the changed code
 2. Fix any reuse, quality, or efficiency issues found
 3. Commit the fixes
-4. Only after this phase is complete, proceed to Phase 7
+4. Only after this phase is complete, proceed to Phase 8
 
-## Phase 7: Ship
+## Phase 8: Ship
 
 1. Push and create a draft PR
 2. Run `/ci --max 10` — fix failures and review comments until clean
 
-## Phase 8: Gate — user approves merge
+## Phase 9: Gate — user approves merge
 
 1. Report the PR URL and status
 2. Ask the user to approve the merge
