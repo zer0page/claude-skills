@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Install claude-skills into a project or globally via symlinks.
+#
+# Usage:
+#   ./install                     # Symlink all skills into ~/.claude/skills/ (global)
+#   ./install --project /path     # Symlink into /path/.claude/skills/ (project-local)
+#   ./install --skill NAME        # Install just one skill
+#   ./install --uninstall         # Remove symlinks created by this script
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILLS_SRC="$REPO_DIR/skills"
+TARGET_DIR="$HOME/.claude/skills"
+SKILL_FILTER=""
+UNINSTALL=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --project)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "Error: --project requires a path argument" >&2
+        exit 1
+      fi
+      TARGET_DIR="$2/.claude/skills"
+      shift 2
+      ;;
+    --skill)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "Error: --skill requires a name argument" >&2
+        exit 1
+      fi
+      SKILL_FILTER="$2"
+      shift 2
+      ;;
+    --uninstall)
+      UNINSTALL=true
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Validate --skill name exists in source
+if [ -n "$SKILL_FILTER" ] && [ ! -d "$SKILLS_SRC/$SKILL_FILTER" ]; then
+  echo "Error: skill '$SKILL_FILTER' not found in $SKILLS_SRC" >&2
+  exit 1
+fi
+
+if ! $UNINSTALL; then
+  mkdir -p "$TARGET_DIR"
+fi
+
+for skill_dir in "$SKILLS_SRC"/*/; do
+  [ -d "$skill_dir" ] || continue
+  name=$(basename "$skill_dir")
+
+  # Filter to a single skill if requested
+  if [ -n "$SKILL_FILTER" ] && [ "$name" != "$SKILL_FILTER" ]; then
+    continue
+  fi
+
+  target="$TARGET_DIR/$name"
+
+  if $UNINSTALL; then
+    if [ -L "$target" ] && [[ "$(readlink "$target")" == "$SKILLS_SRC/"* ]]; then
+      rm "$target"
+      echo "  removed $target"
+    fi
+    continue
+  fi
+
+  if [ -L "$target" ]; then
+    existing=$(readlink "$target")
+    if [ "$existing" = "$skill_dir" ]; then
+      echo "  $name (already linked)"
+      continue
+    fi
+    echo "  $name: updating link (was $existing)"
+    ln -sf "$skill_dir" "$target"
+  elif [ -e "$target" ]; then
+    echo "  $name: skipped (exists and is not a symlink — use --uninstall first)"
+    continue
+  else
+    ln -s "$skill_dir" "$target"
+    echo "  $name → $skill_dir"
+  fi
+done
+
+if $UNINSTALL; then
+  echo "done (uninstalled)"
+else
+  echo "done (target: $TARGET_DIR)"
+fi
