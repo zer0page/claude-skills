@@ -58,14 +58,25 @@ Check for a submitted review from `$REVIEW_BOT` on the **latest commit**.
 **Important:** Always use `gh api --jq` instead of piping to `jq` for review endpoints — bot review bodies can contain raw control characters (U+0000–U+001F) that crash standalone `jq`.
 
 ```bash
-gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
-  --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .state // empty"
+# Check for existing review
+review_state=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
+  --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .state // empty")
+
+# If no review, request one
+if [ -z "$review_state" ]; then
+  gh api "repos/$OWNER/$NAME/pulls/$PR/requested_reviewers" \
+    -X POST -f "reviewers[]=$REVIEW_BOT"
+fi
+
+# Poll every 30s, up to 10 minutes
+for i in $(seq 1 20); do
+  review_state=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
+    --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .state // empty")
+  if [ -n "$review_state" ]; then break; fi
+  sleep 30
+done
 ```
-If none, request one:
-```bash
-gh api repos/$OWNER/$NAME/pulls/$PR/requested_reviewers -X POST -f "reviewers[]=$REVIEW_BOT"
-```
-Poll every 10s, up to 10 minutes. If timeout, proceed without it.
+If no review after 10 minutes, proceed without it.
 
 ### 3. Check results
 
