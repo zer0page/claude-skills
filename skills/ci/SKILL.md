@@ -117,8 +117,8 @@ After each attempt, report:
 
 ## Completion
 
-When the loop finishes, present three options to the user:
+When the loop finishes, use `AskUserQuestion` to present three options:
 
 1. **Mark ready** — mark the PR as ready for review (remove draft status). Do not merge.
 2. **Clean up and reopen** — squash all commits on the branch into one, force-push, close the PR, and reopen a new PR with clean history.
-3. **Mark ready, squash merge, and close** — mark the PR ready, squash merge into the base branch, delete the remote branch, and switch to main locally.
+3. **Merge and close** — mark the PR ready, squash merge into the base branch, delete the remote branch, and switch to main locally.
