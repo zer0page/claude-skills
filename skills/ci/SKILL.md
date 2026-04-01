@@ -26,6 +26,8 @@ LATEST_SHA=$(git rev-parse HEAD)
 REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
 ```
 
+**Shell compatibility:** Do not use `status` as a variable name — it is read-only in zsh. Prefix CI-related variables (e.g., `run_status`, `run_conclusion`, `run_id`).
+
 ## Loop (max N attempts, default 5)
 
 Each attempt, first recompute `LATEST_SHA=$(git rev-parse HEAD)` (it changes after each push).
@@ -33,12 +35,16 @@ Each attempt, first recompute `LATEST_SHA=$(git rev-parse HEAD)` (it changes aft
 ### 1. Wait for CI
 
 ```bash
-gh run list --branch "$BRANCH" --limit 1 --json status,conclusion,databaseId,headSha --jq '.[0]'
+result=$(gh run list --branch "$BRANCH" --limit 1 --json status,conclusion,databaseId,headSha --jq '.[0]')
+run_status=$(echo "$result" | jq -r '.status')
+run_conclusion=$(echo "$result" | jq -r '.conclusion')
+run_id=$(echo "$result" | jq -r '.databaseId')
+run_sha=$(echo "$result" | jq -r '.headSha')
 ```
 
-Poll every 10s until `.status` is `completed`. Verify `.headSha` matches `$LATEST_SHA` to ensure this run is for the current commit. Use `.databaseId` for log retrieval.
+Poll every 10s until `$run_status` is `completed`. Verify `$run_sha` matches `$LATEST_SHA` to ensure this run is for the current commit. Use `$run_id` for log retrieval.
 
-Check `.conclusion`:
+Check `$run_conclusion`:
 - `"success"` → CI passed, proceed to step 2
 - `"failure"` → CI failed, skip to step 3 (read logs, fix)
 - Any other value (`cancelled`, `skipped`, etc.) → report the conclusion to the user and stop. Do not treat as success or attempt to fix — these require human intervention.
@@ -63,8 +69,8 @@ Poll every 10s, up to 10 minutes. If timeout, proceed without it.
 
 ### 3. Check results
 
-- **CI failed** (`.conclusion == "failure"`): read logs via `gh run view <databaseId> --log-failed`
-- **CI passed** (`.conclusion == "success"`) + review bot reviewed: check for comments on the **latest commit's review**:
+- **CI failed** (`$run_conclusion == "failure"`): read logs via `gh run view $run_id --log-failed`
+- **CI passed** (`$run_conclusion == "success"`) + review bot reviewed: check for comments on the **latest commit's review**:
   ```bash
   # Get latest review bot review ID for this commit (use --jq to avoid control char crashes)
   REVIEW_ID=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
@@ -104,7 +110,7 @@ Poll every 10s, up to 10 minutes. If timeout, proceed without it.
 
 ### 6. Repeat or stop
 
-- If `.conclusion == "success"` + no unaddressed comments → proceed to Completion
+- If `$run_conclusion == "success"` + no unaddressed comments → proceed to Completion
 - If not last attempt → loop back to step 1
 - If last attempt → still do steps 4+5 fully (fix, react +1, commit, push), just skip looping back to step 1. Report what was fixed and any remaining comments, then proceed to Completion.
 
