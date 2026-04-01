@@ -76,8 +76,7 @@ Poll every 10s, up to 10 minutes. If timeout, proceed without it.
   ```bash
   # Get PR review comments on the latest commit, not from the configured review bot
   gh api "repos/$OWNER/$NAME/pulls/$PR/comments" \
-    --jq --arg bot "$REVIEW_BOT" --arg sha "$LATEST_SHA" \
-    '[.[] | select(.user.login != $bot) | select(.commit_id == $sha or .original_commit_id == $sha)] | .[] | {id, path, body, user: .user.login}'
+    --jq '[.[] | select(.user.login != "'"$REVIEW_BOT"'") | select(.commit_id == "'"$LATEST_SHA"'" or .original_commit_id == "'"$LATEST_SHA"'")] | .[] | {id, path, body, user: .user.login}'
   ```
   Address these the same way as bot comments — fix if within scope, react +1, or stop and notify the user if the comment requires a design change.
 

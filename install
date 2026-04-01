@@ -87,6 +87,13 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   fi
 done
 
+if [ -n "$SKILL_FILTER" ] && ! $UNINSTALL; then
+  if [ ! -d "$SKILLS_SRC/$SKILL_FILTER" ]; then
+    echo "Error: skill '$SKILL_FILTER' not found in $SKILLS_SRC" >&2
+    exit 1
+  fi
+fi
+
 if $UNINSTALL; then
   echo "done (uninstalled)"
 else
