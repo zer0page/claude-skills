@@ -77,11 +77,12 @@ checks=$(echo "$checks_json" | jq -c '[.[] | {
 }]')
 
 # Extract counts and failed checks in one jq call
+# "failed" = any resolved check not SUCCESS or NEUTRAL (catches FAILURE, ERROR, CANCELLED, SKIPPED, STALE, etc.)
 check_stats=$(echo "$checks" | jq -c '{
   total: length,
   pending: [.[] | select(.resolved == false)] | length,
-  failed: [.[] | select(.resolved == true) | select(.state == "FAILURE" or .state == "ERROR" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED")] | length,
-  failed_checks: [.[] | select(.resolved == true) | select(.state == "FAILURE" or .state == "ERROR" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED")]
+  failed: [.[] | select(.resolved == true) | select(.state != "SUCCESS" and .state != "NEUTRAL")] | length,
+  failed_checks: [.[] | select(.resolved == true) | select(.state != "SUCCESS" and .state != "NEUTRAL")]
 }')
 total=$(echo "$check_stats" | jq '.total')
 pending=$(echo "$check_stats" | jq '.pending')

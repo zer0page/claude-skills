@@ -12,4 +12,4 @@ Before committing, run any `test_*` scripts found in the changed skill's directo
 
 ## Scripts
 
-Follow the Claude Code skills spec: use `{{SKILL_DIR}}` to reference the skill directory (expands at runtime), place scripts in a `scripts/` subdirectory, and register them in `allowed-tools` frontmatter if needed. Scripts must not interpret or compute verdicts — return raw data from APIs and let the LLM decide.
+Follow the Claude Code skills spec: use `{{SKILL_DIR}}` to reference the skill directory (expands at runtime), place scripts in a `scripts/` subdirectory, and register them in `allowed-tools` frontmatter if needed. Scripts may normalize and aggregate raw API data (counts, groupings, field mapping) but must not compute overall pass/fail verdicts — return structured data and let the LLM decide.

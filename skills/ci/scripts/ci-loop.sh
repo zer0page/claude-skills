@@ -47,6 +47,11 @@ fi
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
+# Validate timeout
+case "$TIMEOUT" in
+  ''|*[!0-9]*) echo '{"error":"--timeout must be a positive integer"}'; exit 0 ;;
+esac
+
 # --- Build poll args (array for safe quoting) ---
 POLL_ARGS=(--pr "$PR" --repo "$REPO" --sha "$SHA")
 if [ -n "$REVIEW_BOT" ]; then
@@ -108,17 +113,17 @@ ci_logs=""
 failed_count=$(echo "$poll_result" | jq -r '.check_counts.failed // 0')
 
 if [ "$failed_count" -gt 0 ]; then
-  # CheckRun failures — fetch logs via gh run view
-  checkrun_ids=$(echo "$poll_result" | jq -r '.failed_checks[] | select(.type == "CheckRun") | .url' | while read -r url; do
-    echo "$url" | grep -oE '/actions/runs/[0-9]+' | grep -oE '[0-9]+' | head -1
-  done | sort -u)
-
-  for run_id in $checkrun_ids; do
+  # CheckRun failures — fetch logs via gh run view (tolerant of non-Actions URLs)
+  while IFS= read -r url; do
+    run_id=$(echo "$url" | grep -oE '/actions/runs/[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
     if [ -n "$run_id" ]; then
       logs=$(gh run view "$run_id" -R "$REPO" --log-failed 2>/dev/null || echo "[failed to fetch logs for run $run_id]")
       ci_logs="${ci_logs}${ci_logs:+\n\n}--- Run $run_id ---\n$logs"
+    else
+      # Non-Actions CheckRun — treat like StatusContext, include URL
+      ci_logs="${ci_logs}${ci_logs:+\n\n}--- CheckRun ---\nURL: $url"
     fi
-  done
+  done < <(echo "$poll_result" | jq -r '.failed_checks[] | select(.type == "CheckRun") | .url // empty')
 
   # StatusContext failures — include URL for LLM to WebFetch
   status_context_failures=$(echo "$poll_result" | jq -r '.failed_checks[] | select(.type == "StatusContext") | "--- \(.name) (\(.state)) ---\nURL: \(.url)"')

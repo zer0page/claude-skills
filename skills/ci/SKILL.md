@@ -32,10 +32,11 @@ Each fix + commit + push = one attempt.
 
 ```bash
 LATEST_SHA=$(git rev-parse HEAD)
-REVIEW_BOT_FLAG=""
-[ "$REVIEW_BOT" != "none" ] && REVIEW_BOT_FLAG="--review-bot $REVIEW_BOT"
+REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
+LOOP_ARGS=(--pr "$PR" --repo "$REPO" --sha "$LATEST_SHA" --timeout 600)
+[ -n "$REVIEW_BOT" ] && [ "$REVIEW_BOT" != "none" ] && LOOP_ARGS+=(--review-bot "$REVIEW_BOT")
 
-result=$(bash "{{SKILL_DIR}}/scripts/ci-loop.sh" --pr "$PR" --repo "$REPO" --sha "$LATEST_SHA" $REVIEW_BOT_FLAG --timeout 600)
+result=$(bash "{{SKILL_DIR}}/scripts/ci-loop.sh" "${LOOP_ARGS[@]}")
 echo "$result"
 ```
 
