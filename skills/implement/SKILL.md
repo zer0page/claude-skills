@@ -23,8 +23,9 @@ _Skipped only with `--quick`._
 
 1. Enter plan mode
 2. Use the validated design from Phase 1 to write a concrete implementation plan
-3. Ask the user clarifying questions if anything remains unresolved
-4. Do not exit plan mode yet — next is Phase 3 (or Phase 4 if using `--quick`)
+3. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — fix any issues as part of the plan
+4. Ask the user clarifying questions if anything remains unresolved
+5. Do not exit plan mode yet — next is Phase 3 (or Phase 4 if using `--quick`)
 
 ## Phase 3: Audit plan
 
