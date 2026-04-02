@@ -12,11 +12,13 @@ Automate the CI fix loop for the current branch's PR.
 ```bash
 BRANCH=$(git branch --show-current)
 PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty')
-if [ -z "$PR" ]; then echo "No PR found for branch $BRANCH"; exit; fi
+if [ -z "$PR" ]; then echo "No PR found for branch $BRANCH"; exit 1; fi
 REPO=$(gh repo view --json owner,name --jq '.owner.login + "/" + .name')
+if [ -z "$REPO" ]; then echo "Error: could not resolve repo"; exit 1; fi
 OWNER=${REPO%%/*}
 NAME=${REPO##*/}
 ALLOWED_FILES=$(gh pr diff "$PR" --name-only)
+if [ -z "$ALLOWED_FILES" ]; then echo "Error: could not get PR diff file list"; exit 1; fi
 LATEST_SHA=$(git rev-parse HEAD)
 ```
 
@@ -30,20 +32,29 @@ REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
 
 ## Loop (max N attempts, default 5)
 
-Recompute `LATEST_SHA=$(git rev-parse HEAD)` at the start of each attempt (it changes after each push).
+**Error handling:** Every `gh` command in this loop must be validated. If a command exits non-zero or returns empty/null, retry after 10s. If it fails twice consecutively, report the error to the user and stop — do not treat it as success or continue the loop.
 
 ### 1. Wait for CI
 
 ```bash
 LATEST_SHA=$(git rev-parse HEAD)
 result=$(gh run list --branch "$BRANCH" --limit 1 --json status,conclusion,databaseId,headSha --jq '.[0]')
+if [ $? -ne 0 ] || [ -z "$result" ]; then
+  echo "gh run list failed — retrying"
+  sleep 10; continue  # retry on next poll iteration
+fi
 run_status=$(echo "$result" | jq -r '.status')
 run_conclusion=$(echo "$result" | jq -r '.conclusion')
 run_id=$(echo "$result" | jq -r '.databaseId')
 run_sha=$(echo "$result" | jq -r '.headSha')
+# Only act on results for the current commit
+if [ "$run_sha" != "$LATEST_SHA" ]; then
+  echo "Stale run (sha=$run_sha, expected=$LATEST_SHA) — keep polling"
+  sleep 10; continue
+fi
 ```
 
-Poll every 10s until `$run_status` is `completed`. Verify `$run_sha` matches `$LATEST_SHA` to confirm the run is for the current commit. Use `$run_id` for log retrieval.
+Poll every 10s until `$run_status` is `completed` **and** `$run_sha` matches `$LATEST_SHA`. If `$run_sha` does not match, the run is stale — keep polling. If `gh` fails, retry on the next poll iteration. If it fails twice consecutively, stop and report the error. Use `$run_id` for log retrieval.
 
 Check `$run_conclusion`:
 - `"success"` → proceed to step 2
