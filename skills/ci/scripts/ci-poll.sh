@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ci-poll.sh — Single-shot CI/review status snapshot for a PR.
-# Returns normalized GitHub API data as JSON. No interpretation.
+# Returns normalized and aggregated GitHub API data as JSON.
 #
 # Usage: ci-poll.sh --pr PR --repo OWNER/NAME --sha SHA [--review-bot BOT]
 #

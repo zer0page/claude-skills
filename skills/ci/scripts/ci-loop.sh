@@ -60,7 +60,12 @@ if [ -n "$REVIEW_BOT" ]; then
   POLL_ARGS+=(--review-bot "$REVIEW_BOT")
 fi
 
-# --- Request review bot upfront — retry until the request goes through ---
+# --- Validate and request review bot ---
+if [ -n "$REVIEW_BOT" ]; then
+  case "$REVIEW_BOT" in
+    *'"'*|*'\\'*) echo '{"error":"invalid review-bot format"}'; exit 0 ;;
+  esac
+fi
 if [ -n "$REVIEW_BOT" ]; then
   for attempt in 1 2 3; do
     if gh api "repos/$OWNER/$NAME/pulls/$PR/requested_reviewers" \
@@ -117,6 +122,7 @@ failed_count=$(echo "$poll_result" | jq -r '.check_counts.failed // 0')
 if [ "$failed_count" -gt 0 ]; then
   # CheckRun failures — fetch logs via gh run view (tolerant of non-Actions URLs)
   while IFS= read -r url; do
+    [ -z "$url" ] && continue
     run_id=$(echo "$url" | grep -oE '/actions/runs/[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
     if [ -n "$run_id" ]; then
       logs=$(gh run view "$run_id" -R "$REPO" --log-failed 2>/dev/null || echo "[failed to fetch logs for run $run_id]")
