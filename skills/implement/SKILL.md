@@ -19,7 +19,7 @@ All `/implement` runs use a worktree for isolation.
 - **Active:** Phases 2–9 operate inside the worktree
 - **Exit:** Phase 9 — `remove` on merge, `keep` otherwise
 
-Name the worktree with a slug derived from the feature description (lowercase, hyphens, max 30 chars, e.g. `fix-auth-timeout`). If `EnterWorktree` fails (name collision), append `-2`, `-3`, etc. and retry.
+Name the worktree with a slug derived from the feature description (lowercase, hyphens, max 30 chars, e.g. `fix-auth-timeout`). If no description is provided, omit the name and let `EnterWorktree` generate one. If `EnterWorktree` fails (name collision), append `-2`, `-3`, etc. and retry.
 
 ## Phase 1: Brainstorm
 
@@ -31,7 +31,7 @@ _Skipped only with `--quick`._
 
 ## Phase 2: Plan
 
-1. Enter a worktree with `EnterWorktree` using the slugified feature description as the name
+1. Enter a worktree with `EnterWorktree` using the slugified feature description as the name — this creates a new branch from HEAD
 2. Enter plan mode
 3. Use the validated design from Phase 1 to write a concrete implementation plan
 4. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — fix any issues as part of the plan
@@ -87,7 +87,7 @@ _Skipped only with `--quick`._
 1. Report the PR URL and status
 2. Ask the user to approve the merge
 3. On approval:
-   - Mark PR ready and squash merge
+   - Squash merge the PR (already marked ready in Phase 8)
    - Verify `git status` is clean inside the worktree
    - Exit the worktree with `ExitWorktree action: "remove"`
    - Switch to main and pull to sync the merge locally
