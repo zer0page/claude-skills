@@ -199,7 +199,7 @@ Do not report on ticks where both statuses remain unchanged. After each fix, rep
 
 ## Completion
 
-Check merge eligibility before presenting options. If `gh` fails or returns empty, retry with backoff (same pattern as the polling phase). Do not mask failures — report and stop if retries exhaust.
+Check merge eligibility before presenting options. If `gh` fails or returns empty, retry up to 3 times with exponential backoff (1s, 2s, 4s). If all retries fail, report the error and stop.
 
 ```bash
 merge_state=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus')
