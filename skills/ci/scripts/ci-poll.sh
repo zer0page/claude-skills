@@ -77,18 +77,6 @@ checks=$(echo "$checks_json" | jq -c '[.[] | {
   url: (if .__typename == "CheckRun" then .detailsUrl else .targetUrl end)
 }]')
 
-# Extract counts and failed checks in one jq call
-# "failed" = any resolved check not SUCCESS or NEUTRAL (catches FAILURE, ERROR, CANCELLED, SKIPPED, STALE, etc.)
-check_stats=$(echo "$checks" | jq -c '{
-  total: length,
-  pending: [.[] | select(.resolved == false)] | length,
-  failed: [.[] | select(.resolved == true) | select(.state != "SUCCESS" and .state != "NEUTRAL")] | length,
-  failed_checks: [.[] | select(.resolved == true) | select(.state != "SUCCESS" and .state != "NEUTRAL")]
-}')
-total=$(echo "$check_stats" | jq '.total')
-pending=$(echo "$check_stats" | jq '.pending')
-failed=$(echo "$check_stats" | jq '.failed')
-failed_checks=$(echo "$check_stats" | jq -c '.failed_checks')
 
 # --- 3. Review bot ---
 review_state="null"
@@ -128,8 +116,6 @@ jq -nc \
   --arg head_sha "$head_sha" \
   --argjson sha_match true \
   --argjson checks "$checks" \
-  --argjson check_counts "{\"total\":$total,\"pending\":$pending,\"failed\":$failed}" \
-  --argjson failed_checks "$failed_checks" \
   --arg review_state "$([ "$review_state" = "null" ] && echo "" || echo "$review_state")" \
   --argjson review_id "$([ "$review_id" = "null" ] && echo "null" || echo "$review_id")" \
   --argjson review_comment_count "$review_comment_count" \
@@ -139,8 +125,6 @@ jq -nc \
     head_sha: $head_sha,
     sha_match: $sha_match,
     checks: $checks,
-    check_counts: $check_counts,
-    failed_checks: $failed_checks,
     review_state: (if $review_state == "" then null else $review_state end),
     review_id: $review_id,
     review_comment_count: $review_comment_count,

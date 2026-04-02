@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# ci-loop.sh — Poll CI/reviews until resolved, fetch details, return raw data.
-# Wraps ci-poll.sh. No interpretation — returns GitHub API data directly.
+# ci-loop.sh — Poll CI/reviews until resolved, fetch details.
 #
 # Usage: ci-loop.sh --pr PR --repo OWNER/NAME --sha SHA [--review-bot BOT] [--timeout SECS]
 #
@@ -60,12 +59,7 @@ if [ -n "$REVIEW_BOT" ]; then
   POLL_ARGS+=(--review-bot "$REVIEW_BOT")
 fi
 
-# --- Validate and request review bot ---
-if [ -n "$REVIEW_BOT" ]; then
-  case "$REVIEW_BOT" in
-    *'"'*|*'\\'*) echo '{"error":"invalid review-bot format"}'; exit 0 ;;
-  esac
-fi
+# --- Request review bot (validation happens in ci-poll.sh) ---
 if [ -n "$REVIEW_BOT" ]; then
   for attempt in 1 2 3; do
     if gh api "repos/$OWNER/$NAME/pulls/$PR/requested_reviewers" \
@@ -86,12 +80,15 @@ while [ $elapsed -lt "$TIMEOUT" ]; do
 
   # Check for error or SHA mismatch — exit immediately
   has_error=$(echo "$poll_result" | jq -r '.error // empty')
-  sha_match=$(echo "$poll_result" | jq -r '.sha_match // empty')
+  sha_match=$(echo "$poll_result" | jq -r '.sha_match')
   [ -n "$has_error" ] && break
   [ "$sha_match" = "false" ] && break
 
-  # Check if all checks are resolved (pending == 0)
-  check_pending=$(echo "$poll_result" | jq -r '.check_counts.pending // 0')
+  # Check if all checks are resolved
+  check_pending=0
+  if [ "$(echo "$poll_result" | jq 'has("checks")')" = "true" ]; then
+    check_pending=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == false)] | length')
+  fi
 
   # Check if review bot has responded (review_state is non-null, or no bot configured)
   review_state=$(echo "$poll_result" | jq -r '.review_state // empty')
@@ -117,7 +114,11 @@ fi
 
 # --- Fetch CI failure logs (raw gh output) ---
 ci_logs=""
-failed_count=$(echo "$poll_result" | jq -r '.check_counts.failed // 0')
+has_checks=$(echo "$poll_result" | jq 'has("checks")')
+failed_count=0
+if [ "$has_checks" = "true" ]; then
+  failed_count=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == true and .state != "SUCCESS" and .state != "NEUTRAL")] | length')
+fi
 
 if [ "$failed_count" -gt 0 ]; then
   # CheckRun failures — fetch logs via gh run view (tolerant of non-Actions URLs)
@@ -131,10 +132,10 @@ if [ "$failed_count" -gt 0 ]; then
       # Non-Actions CheckRun — treat like StatusContext, include URL
       ci_logs="${ci_logs}${ci_logs:+\n\n}--- CheckRun ---\nURL: $url"
     fi
-  done < <(echo "$poll_result" | jq -r '.failed_checks[] | select(.type == "CheckRun") | .url // empty')
+  done < <(echo "$poll_result" | jq -r '.checks[] | select(.resolved == true and .state != "SUCCESS" and .state != "NEUTRAL") | select(.type == "CheckRun") | .url // empty')
 
   # StatusContext failures — include URL for LLM to WebFetch
-  status_context_failures=$(echo "$poll_result" | jq -r '.failed_checks[] | select(.type == "StatusContext") | "--- \(.name) (\(.state)) ---\nURL: \(.url)"')
+  status_context_failures=$(echo "$poll_result" | jq -r '.checks[] | select(.resolved == true and .state != "SUCCESS" and .state != "NEUTRAL") | select(.type == "StatusContext") | "--- \(.name) (\(.state)) ---\nURL: \(.url)"')
   if [ -n "$status_context_failures" ]; then
     ci_logs="${ci_logs}${ci_logs:+\n\n}$status_context_failures"
   fi
