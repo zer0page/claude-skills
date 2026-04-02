@@ -7,7 +7,7 @@ description: Full development workflow — brainstorm, plan, audit, simplify, bu
 
 End-to-end workflow for building features and updates. **Every phase is mandatory and sequential — do not skip or reorder phases.** The only exception is `--quick`, which skips audit phases.
 
-`--quick` skips Phase 4 (audit plan) and Phase 6 (audit diff). All other phases are always required.
+`--quick` skips Phase 3 (audit plan) and Phase 6 (audit diff). All other phases are always required.
 
 **Auto-quick:** If `--quick` was not specified but the change appears trivial (single-file fix, small bug fix, minor update), use `AskUserQuestion` to ask whether to run with `--quick`. `--quick` only skips audits — brainstorming still runs.
 
@@ -47,25 +47,26 @@ Name the worktree with a slug derived from the feature description (lowercase, h
 4. Write a concrete implementation plan based on the validated design from Phase 1.
 5. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — include fixes in the plan.
 6. Use `AskUserQuestion` for any unresolved design questions.
+7. Do not exit plan mode yet — Phase 3 is next (or Phase 4 with `--quick`).
 
-## Phase 3: Gate — user approves plan
-
-Use `ExitPlanMode` to present the plan and request approval. This exits plan mode and gates on user approval. Do not proceed without explicit approval.
-
-## Phase 4: Audit plan
+## Phase 3: Audit plan
 
 _Skipped with `--quick`._
 
-1. You are now out of plan mode (Phase 3's `ExitPlanMode` handled the exit). The Agent tool is available.
-2. Run `/audit --no-handoff` on the plan file.
-3. Fix findings immediately — revise the plan and update the plan file.
-4. Use `AskUserQuestion` to present a summary of audit findings, what changed, and request approval before implementing. Do not proceed without explicit approval.
+1. Run `/audit --no-handoff` on the plan file.
+2. Fix findings immediately — revise the plan.
+3. Update the plan file. Do not pause here — fold the audit summary into Phase 4.
+
+## Phase 4: Gate — user approves execution
+
+Present the final plan to the user. If Phase 3 ran, include a summary of audit findings and how they were addressed. Use `ExitPlanMode` to request approval — this exits plan mode and gates on user approval. Do not proceed without explicit approval.
 
 ## Phase 5: Implement
 
-1. You are inside the worktree created in Phase 2 — the branch is already checked out. Never commit directly to main.
-2. Build the feature following the plan. Only modify files identified in the plan.
-3. Commit locally with a descriptive message — do not push yet.
+1. You are now out of plan mode (Phase 4's `ExitPlanMode` handled the exit).
+2. You are inside the worktree created in Phase 2 — the branch is already checked out. Never commit directly to main.
+3. Build the feature following the plan. Only modify files identified in the plan.
+4. Commit locally with a descriptive message — do not push yet.
 
 ## Phase 6: Audit diff
 
