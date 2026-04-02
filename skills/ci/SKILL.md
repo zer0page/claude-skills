@@ -69,7 +69,7 @@ Read `ci_logs` from the JSON output. It contains:
 
 #### Review comments
 
-Read `review_comments` (bot) and `human_comment_details` (human) arrays from the JSON output. Each entry has `{id, path, body}`.
+Read `review_comments` (bot: `{id, path, body}`) and `human_comment_details` (human: `{id, path, body, user}`) arrays from the JSON output.
 
 #### Fix rules
 
@@ -85,7 +85,10 @@ Read `review_comments` (bot) and `human_comment_details` (human) arrays from the
 
 #### Flaky CI detection
 
-After reading failure logs, extract the first failing job name + first 200 characters of its error output as the error signature. On the first CI failure, store the signature. On subsequent failures, compare. If identical across 2+ consecutive attempts, use `AskUserQuestion` with:
+After reading failure logs, extract the first failing job name + first 200 characters of its error output as the error signature.
+- **First failure:** Store the signature.
+- **Second+ failure:** Compare current signature to the stored one.
+- **If identical in 2 consecutive attempts:** Use `AskUserQuestion` with:
 1. **Retry anyway** — continue the loop.
 2. **Skip CI (mark clean)** — proceed to Completion.
 3. **Stop and report** — proceed to Completion with current status.

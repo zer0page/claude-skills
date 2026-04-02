@@ -56,6 +56,12 @@ apply_jq() {
 }
 
 case "$*" in
+  *"pr view"*"headRefOid"*"statusCheckRollup"*|*"pr view"*"statusCheckRollup"*"headRefOid"*)
+    # Combined fetch — build JSON from separate response files
+    _sha=$(cat "$RESPONSE_DIR/head_sha" 2>/dev/null)
+    _checks=$(cat "$RESPONSE_DIR/checks" 2>/dev/null)
+    _merge=$(cat "$RESPONSE_DIR/merge_state" 2>/dev/null)
+    printf '{"headRefOid":"%s","statusCheckRollup":%s,"mergeStateStatus":"%s"}' "$_sha" "$_checks" "$_merge" ;;
   *"pr view"*"headRefOid"*)
     cat "$RESPONSE_DIR/head_sha" 2>/dev/null ;;
   *"pr view"*"statusCheckRollup"*)

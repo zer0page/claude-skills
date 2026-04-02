@@ -31,15 +31,30 @@ fi
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
+# Validate REVIEW_BOT — reject quotes and backslashes that break jq interpolation
+if [ -n "$REVIEW_BOT" ]; then
+  case "$REVIEW_BOT" in
+    *'"'*|*'\\'*)
+      printf '{"error":"invalid review-bot format"}\n'
+      exit 0 ;;
+  esac
+fi
+
 # --- Helper: safe gh call, returns empty string on failure ---
 gh_safe() {
   gh "$@" 2>/dev/null || true
 }
 
-# --- 1. Validate PR head SHA ---
-head_sha=$(gh_safe pr view "$PR" -R "$REPO" --json headRefOid --jq '.headRefOid')
+# --- 1. Fetch PR data in one call (avoids race between SHA check and status fetch) ---
+pr_data=$(gh_safe pr view "$PR" -R "$REPO" --json headRefOid,statusCheckRollup,mergeStateStatus)
+if [ -z "$pr_data" ]; then
+  printf '{"error":"failed to fetch PR data"}\n'
+  exit 0
+fi
+
+head_sha=$(echo "$pr_data" | jq -r '.headRefOid // empty')
 if [ -z "$head_sha" ]; then
-  printf '{"error":"failed to fetch PR head SHA"}\n'
+  printf '{"error":"failed to parse PR head SHA"}\n'
   exit 0
 fi
 
@@ -48,14 +63,9 @@ if [ "$head_sha" != "$SHA" ]; then
   exit 0
 fi
 
-# --- 2. Fetch statusCheckRollup ---
-# Normalizes CheckRun and StatusContext into a common schema.
-# Field mapping only — states are passed through from GitHub unchanged.
-checks_json=$(gh_safe pr view "$PR" -R "$REPO" --json statusCheckRollup --jq '.statusCheckRollup')
-
-if [ -z "$checks_json" ] || [ "$checks_json" = "null" ]; then
-  checks_json="[]"
-fi
+# --- 2. Normalize statusCheckRollup ---
+# Maps CheckRun and StatusContext into uniform field names. States pass through unchanged.
+checks_json=$(echo "$pr_data" | jq -c '.statusCheckRollup // []')
 
 # Normalize into uniform format (schema mapping, not interpretation)
 checks=$(echo "$checks_json" | jq -c '[.[] | {
@@ -104,11 +114,8 @@ if [ -n "$human_comments" ] && [ "$human_comments" != "null" ]; then
   human_comment_ids="$human_comments"
 fi
 
-# --- 5. Merge state ---
-merge_state=$(gh_safe pr view "$PR" -R "$REPO" --json mergeStateStatus --jq '.mergeStateStatus')
-if [ -z "$merge_state" ]; then
-  merge_state="UNKNOWN"
-fi
+# --- 5. Merge state (from initial pr_data fetch — no extra API call) ---
+merge_state=$(echo "$pr_data" | jq -r '.mergeStateStatus // "UNKNOWN"')
 
 # --- 6. Output: raw data, no computed verdicts ---
 jq -n \

@@ -47,10 +47,10 @@ fi
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
-# --- Build poll args ---
-POLL_ARGS="--pr $PR --repo $REPO --sha $SHA"
+# --- Build poll args (array for safe quoting) ---
+POLL_ARGS=(--pr "$PR" --repo "$REPO" --sha "$SHA")
 if [ -n "$REVIEW_BOT" ]; then
-  POLL_ARGS="$POLL_ARGS --review-bot $REVIEW_BOT"
+  POLL_ARGS+=(--review-bot "$REVIEW_BOT")
 fi
 
 # --- Polling loop: exit when all checks resolved and review resolved ---
@@ -59,7 +59,7 @@ poll_result=""
 timed_out=false
 
 while [ $elapsed -lt "$TIMEOUT" ]; do
-  poll_result=$(bash "$POLL_SCRIPT" $POLL_ARGS 2>/dev/null) || poll_result='{"error":"ci-poll.sh failed"}'
+  poll_result=$(bash "$POLL_SCRIPT" "${POLL_ARGS[@]}" 2>/dev/null) || poll_result='{"error":"ci-poll.sh failed"}'
 
   # Check for error or SHA mismatch — exit immediately
   has_error=$(echo "$poll_result" | jq -r '.error // empty')
