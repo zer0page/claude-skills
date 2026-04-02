@@ -25,7 +25,7 @@ Name the worktree with a slug derived from the feature description (lowercase, h
 
 1. Run `/brainstorming` to explore the idea before planning
 2. Validate understanding, surface assumptions, and explore design approaches
-3. Only after the brainstorming exit criteria are met, proceed to Phase 2
+3. Use `AskUserQuestion` to confirm brainstorming is complete, then proceed to Phase 2
 
 ## Phase 2: Plan
 
@@ -73,7 +73,7 @@ _Skipped only with `--quick`._
 1. Run `/simplify` on the changed code
 2. Fix any reuse, quality, or efficiency issues found
 3. Commit the fixes
-4. Only after this phase is complete, proceed to Phase 8
+4. Use `AskUserQuestion` to present a summary of simplify results, then proceed to Phase 8
 
 ## Phase 8: Ship
 
@@ -87,7 +87,7 @@ _Skipped only with `--quick`._
 2. Ask the user to approve the merge
 3. On approval:
    - Squash merge with `gh pr merge --squash` (do not use `--delete-branch` — it tries to checkout main locally, which fails in worktrees)
-   - Verify merge completed: `gh pr view --json merged --jq .merged` (must be `true`)
+   - Verify merge completed: `gh pr view --json state --jq '.state'` (must be `MERGED`)
    - Delete the remote branch: `BRANCH=$(gh pr view --json headRefName --jq '.headRefName') && [ -n "$BRANCH" ] && git push origin --delete "$BRANCH"`
    - Exit the worktree with `ExitWorktree action: "remove", discard_changes: true` (safe — squash merge confirmed on main)
    - Switch to main and pull to sync the merge locally
