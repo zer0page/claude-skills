@@ -47,8 +47,8 @@ echo "$result"
 - `sha_match == false` → `git pull`, recompute `LATEST_SHA`, restart attempt.
 - `error` present → API/network failure. Retry in next attempt.
 - `timed_out == true` → report to user, **STOP**.
-- `check_counts.failed > 0` → fix CI (step 3).
 - `review_comment_count > 0` or `human_comment_ids` non-empty → fix comments first (step 3). If both bot and human comments exist, address in one fix. Pushing restarts CI.
+- `check_counts.failed > 0` (and no comments) → fix CI (step 3).
 - No failures, no comments → **EXIT → Completion**.
 
 ### 3. Fix

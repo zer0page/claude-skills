@@ -28,13 +28,14 @@ SHA=""
 REVIEW_BOT=""
 TIMEOUT=600  # 10 minutes default
 
+needs_arg() { if [ $# -lt 2 ] || [ -z "$2" ]; then echo "Missing value for $1" >&2; exit 1; fi; }
 while [ $# -gt 0 ]; do
   case "$1" in
-    --pr)         PR="$2";         shift 2 ;;
-    --repo)       REPO="$2";       shift 2 ;;
-    --sha)        SHA="$2";        shift 2 ;;
-    --review-bot) REVIEW_BOT="$2"; shift 2 ;;
-    --timeout)    TIMEOUT="$2";    shift 2 ;;
+    --pr)         needs_arg "$@"; PR="$2";         shift 2 ;;
+    --repo)       needs_arg "$@"; REPO="$2";       shift 2 ;;
+    --sha)        needs_arg "$@"; SHA="$2";        shift 2 ;;
+    --review-bot) needs_arg "$@"; REVIEW_BOT="$2"; shift 2 ;;
+    --timeout)    needs_arg "$@"; TIMEOUT="$2";    shift 2 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
@@ -47,10 +48,11 @@ fi
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
-# Validate timeout
+# Validate timeout (must be positive integer)
 case "$TIMEOUT" in
   ''|*[!0-9]*) echo '{"error":"--timeout must be a positive integer"}'; exit 0 ;;
 esac
+if [ "$TIMEOUT" -le 0 ]; then echo '{"error":"--timeout must be greater than 0"}'; exit 0; fi
 
 # --- Build poll args (array for safe quoting) ---
 POLL_ARGS=(--pr "$PR" --repo "$REPO" --sha "$SHA")

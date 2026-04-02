@@ -13,12 +13,13 @@ REPO=""
 SHA=""
 REVIEW_BOT=""
 
+needs_arg() { if [ $# -lt 2 ] || [ -z "$2" ]; then echo "Missing value for $1" >&2; exit 1; fi; }
 while [ $# -gt 0 ]; do
   case "$1" in
-    --pr)       PR="$2";         shift 2 ;;
-    --repo)     REPO="$2";       shift 2 ;;
-    --sha)      SHA="$2";        shift 2 ;;
-    --review-bot) REVIEW_BOT="$2"; shift 2 ;;
+    --pr)         needs_arg "$@"; PR="$2";         shift 2 ;;
+    --repo)       needs_arg "$@"; REPO="$2";       shift 2 ;;
+    --sha)        needs_arg "$@"; SHA="$2";        shift 2 ;;
+    --review-bot) needs_arg "$@"; REVIEW_BOT="$2"; shift 2 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
