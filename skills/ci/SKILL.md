@@ -205,6 +205,8 @@ Check merge eligibility before presenting options:
 merge_state=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus') || merge_state="UNKNOWN"
 ```
 
+Use `AskUserQuestion` to present the applicable options:
+
 **Options always available:**
 
 1. **Mark ready (Recommended)** — remove draft status. Do not merge.
