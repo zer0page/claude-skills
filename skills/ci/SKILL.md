@@ -82,11 +82,13 @@ If no review after 10 minutes, proceed without it.
 ### 3. Check results
 
 - **CI failed** (`$run_conclusion == "failure"`): read logs via `gh run view $run_id --log-failed`.
-- **CI passed** + review bot reviewed: check for comments on the **latest commit's review**:
+- **CI passed** + review bot reviewed: check for comments on the **latest commit's review** (skip if no review arrived):
   ```bash
   REVIEW_ID=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
-    --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.commit_id == \"$LATEST_SHA\")] | last | .id")
-  gh api "repos/$OWNER/$NAME/pulls/$PR/reviews/$REVIEW_ID/comments" --jq '.[] | {id, path, body}'
+    --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .id")
+  if [ -n "$REVIEW_ID" ] && [ "$REVIEW_ID" != "null" ]; then
+    gh api "repos/$OWNER/$NAME/pulls/$PR/reviews/$REVIEW_ID/comments" --jq '.[] | {id, path, body}'
+  fi
   ```
 - **Non-bot review comments** (human reviewers, other bots):
   ```bash

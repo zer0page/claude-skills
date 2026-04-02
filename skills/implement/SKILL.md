@@ -29,10 +29,15 @@ Name the worktree with a slug derived from the feature description (lowercase, h
 ## Phase 2: Plan
 
 1. Enter a worktree with `EnterWorktree`: use the slugified description as the name, or omit to auto-generate. This creates a new branch from HEAD.
-2. If `git config user.name` is empty, configure git identity from the latest commit:
+2. If `git config user.name` is empty, configure git identity:
    ```bash
-   git config user.name "$(git log -1 --format='%an')"
-   git config user.email "$(git log -1 --format='%ae')"
+   if git rev-parse --verify HEAD >/dev/null 2>&1; then
+     git config user.name "$(git log -1 --format='%an')"
+     git config user.email "$(git log -1 --format='%ae')"
+   else
+     git config user.name "$(git config --global user.name)"
+     git config user.email "$(git config --global user.email)"
+   fi
    ```
 3. Enter plan mode.
 4. Write a concrete implementation plan based on the validated design from Phase 1.
@@ -80,7 +85,10 @@ _Skipped with `--quick`._
 
 1. Push and create a draft PR.
 2. Run `/ci --max 10` — fix failures and review comments until clean.
-3. `/ci` presents completion options. If the user selects "Mark ready" or "Clean up and reopen", proceed to Phase 9. If the user selects "Merge and close", `/ci` handles the merge — skip Phase 9 and go directly to worktree cleanup: `ExitWorktree action: "remove", discard_changes: true`, then switch to main and pull.
+3. `/ci` presents completion options:
+   - **Mark ready** → proceed to Phase 9.
+   - **Clean up and reopen** → `/ci` closes and reopens the PR. Re-fetch the new PR URL before proceeding to Phase 9.
+   - **Merge and close** → `/ci` handles the merge. Skip Phase 9 and go directly to worktree cleanup: `ExitWorktree action: "remove", discard_changes: true`, then switch to main and pull.
 
 ## Phase 9: Gate — user approves merge
 
