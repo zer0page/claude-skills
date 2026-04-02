@@ -24,7 +24,10 @@ ALLOWED_FILES=$(gh pr diff "$PR" --name-only) || { echo "Error: gh pr diff faile
 
 **Resolve review bot:** Read `CLAUDE.md` for a configured review bot (e.g. `review_bot: my-reviewer[bot]`). Default: `copilot-pull-request-reviewer[bot]`. If set to `none`, pass no `--review-bot` flag to the polling script.
 
-**Polling script:** `{{SKILL_DIR}}/scripts/ci-poll.sh`
+**Scripts:**
+
+- `{{SKILL_DIR}}/scripts/ci-poll.sh` — Single-shot status snapshot. Returns JSON with current CI, review, and merge state. Use when you need fine-grained control over the polling loop.
+- `{{SKILL_DIR}}/scripts/ci-loop.sh` — Wraps `ci-poll.sh` in a polling loop. Blocks until actionable, then fetches failure logs and review comments before returning. Use this by default — it minimizes round trips.
 
 ## Loop (max N attempts, default 5)
 
@@ -32,65 +35,43 @@ Each pass through the attempt loop (fix + commit + push) counts as **one attempt
 
 ### 1. Poll CI and reviews
 
-Recompute the latest SHA then run the polling script in a loop until both CI and reviews are resolved. This is **one Bash call** — the shell loop handles polling internally:
+Recompute the latest SHA then run the loop script. This is **one Bash call** — it polls internally and only returns when action is needed:
 
 ```bash
 LATEST_SHA=$(git rev-parse HEAD)
 REVIEW_BOT_FLAG=""
 [ "$REVIEW_BOT" != "none" ] && REVIEW_BOT_FLAG="--review-bot $REVIEW_BOT"
 
-while true; do
-  result=$(bash "{{SKILL_DIR}}/scripts/ci-poll.sh" --pr "$PR" --repo "$REPO" --sha "$LATEST_SHA" $REVIEW_BOT_FLAG)
-  ci=$(echo "$result" | jq -r '.ci_status')
-  rv=$(echo "$result" | jq -r '.review_bot.status')
-  if [ "$ci" = "stale" ] || [ "$ci" = "error" ]; then break; fi
-  if [ "$ci" != "pending" ] && [ "$rv" != "pending" ]; then break; fi
-  sleep 10
-done
+result=$(bash "{{SKILL_DIR}}/scripts/ci-loop.sh" --pr "$PR" --repo "$REPO" --sha "$LATEST_SHA" $REVIEW_BOT_FLAG --timeout 600)
 echo "$result"
 ```
 
-If `ci_status` is `"stale"`, someone else pushed — re-sync with `git pull` and restart the attempt.
+### 2. Act on result
 
-If `ci_status` is `"error"`, the script couldn't reach the GitHub API — wait 30s and retry the polling loop.
+Read the `action` field from the JSON output:
 
-### 2. Decision (priority order)
-
-Read the JSON output from step 1. Evaluate in this exact order:
-
-**a.** `review_bot.status == "failed"` OR `human_comments.count > 0` → **Fix review/human comments first.**
-Reviews are faster to resolve, and pushing a fix restarts CI.
-
-**b.** `ci_status == "failed"` → **Fix CI failures.**
-
-**c.** `ci_status == "clean"` AND `review_bot.status` is `"clean"` or `"skipped"` AND `human_comments.count == 0` → **EXIT loop → proceed to Completion.**
-
-**d.** `ci_status == "cancelled"` or any unexpected value → **Report to user and STOP.** Do not treat as success or attempt to fix.
+- **`"done"`** → CI clean, reviews clean. **EXIT loop → proceed to Completion.**
+- **`"fix_reviews"`** → Review/human comments need fixing. Logs pre-fetched in `review_comments` and `human_comment_details`.
+- **`"fix_ci"`** → CI failed. Failure logs pre-fetched in `ci_logs`. StatusContext failures include URLs for `WebFetch`.
+- **`"fix_both"`** → Both need fixing. Fix reviews first (pushing restarts CI).
+- **`"stale"`** → Someone else pushed. Re-sync with `git pull`, recompute `LATEST_SHA`, restart attempt.
+- **`"error"`** → API failure. Wait 30s, retry.
+- **`"cancelled"`** → Report to user and **STOP**. Do not treat as success.
+- **`"timeout"`** → Polling timed out. Report to user and **STOP**.
 
 ### 3. Fix issues
 
+Failure details are pre-fetched by `ci-loop.sh` — no additional API calls needed.
+
 #### CI failures
 
-For each entry in `failed_checks`:
-
-- **`type: "CheckRun"` (GitHub Actions):** Extract the run ID from the `url` field (pattern: `/actions/runs/<ID>/job/...`), then read logs:
-  ```bash
-  gh run view <RUN_ID> --log-failed
-  ```
-
-- **`type: "StatusContext"` (external CI):** Try `WebFetch <url>` to retrieve failure details. Parse the page for error messages. If the page is behind auth or not parseable, report the failure name, state, and URL to the user and ask for guidance.
+Read `ci_logs` from the JSON output. It contains:
+- **CheckRun (GitHub Actions):** Full failure logs from `gh run view --log-failed`.
+- **StatusContext (external CI):** The failure name, state, and URL. Use `WebFetch <url>` to retrieve details. If the page is behind auth or not parseable, report to the user and ask for guidance.
 
 #### Review comments
 
-If `review_bot.comment_count > 0`, fetch the comments:
-```bash
-gh api "repos/$OWNER/$NAME/pulls/$PR/reviews/<review_id>/comments" --jq '.[] | {id, path, body}'
-```
-
-If `human_comments.count > 0`, fetch by IDs:
-```bash
-gh api "repos/$OWNER/$NAME/pulls/comments/<ID>" --jq '{id, path, body, user: .user.login}'
-```
+Read `review_comments` (bot) and `human_comment_details` (human) arrays from the JSON output. Each entry has `{id, path, body}`.
 
 #### Fix rules
 

@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+# Unit tests for ci-poll.sh and ci-loop.sh.
+# Mocks gh and jq responses to test script logic without network calls.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+POLL_SCRIPT="$SCRIPT_DIR/skills/ci/scripts/ci-poll.sh"
+LOOP_SCRIPT="$SCRIPT_DIR/skills/ci/scripts/ci-loop.sh"
+TMPDIR_BASE=$(mktemp -d)
+passed=0
+failed=0
+
+cleanup() { rm -rf "$TMPDIR_BASE"; }
+trap cleanup EXIT
+
+pass() { passed=$((passed + 1)); echo "  PASS: $1"; }
+fail() { failed=$((failed + 1)); echo "  FAIL: $1"; }
+
+assert_json() {
+  local json="$1" path="$2" expected="$3" label="$4"
+  actual=$(echo "$json" | jq -r "$path")
+  if [ "$actual" = "$expected" ]; then
+    pass "$label"
+  else
+    fail "$label (expected '$expected', got '$actual')"
+  fi
+}
+
+# --- Create mock gh script ---
+# The mock reads a response file based on the command pattern.
+MOCK_DIR="$TMPDIR_BASE/mocks"
+MOCK_GH="$MOCK_DIR/gh"
+mkdir -p "$MOCK_DIR"
+
+create_mock_gh() {
+  local response_dir="$1"
+  cat > "$MOCK_GH" << 'GHEOF'
+#!/usr/bin/env bash
+# Mock gh — returns canned responses, applies --jq filters
+RESPONSE_DIR="__RESPONSE_DIR__"
+
+# Extract --jq filter if present
+JQ_FILTER=""
+args=("$@")
+for i in "${!args[@]}"; do
+  if [ "${args[$i]}" = "--jq" ] && [ $((i+1)) -lt ${#args[@]} ]; then
+    JQ_FILTER="${args[$((i+1))]}"
+    break
+  fi
+done
+
+apply_jq() {
+  if [ -n "$JQ_FILTER" ]; then
+    jq -r "$JQ_FILTER"
+  else
+    cat
+  fi
+}
+
+case "$*" in
+  *"pr view"*"headRefOid"*)
+    cat "$RESPONSE_DIR/head_sha" 2>/dev/null ;;
+  *"pr view"*"statusCheckRollup"*)
+    cat "$RESPONSE_DIR/checks" 2>/dev/null ;;
+  *"pr view"*"mergeStateStatus"*)
+    cat "$RESPONSE_DIR/merge_state" 2>/dev/null ;;
+  *"api"*"reviews"*"comments"*)
+    cat "$RESPONSE_DIR/review_comments" 2>/dev/null | apply_jq ;;
+  *"api"*"reviews"*)
+    cat "$RESPONSE_DIR/reviews" 2>/dev/null | apply_jq ;;
+  *"api"*"pulls/"*"/comments"*)
+    cat "$RESPONSE_DIR/pr_comments" 2>/dev/null | apply_jq ;;
+  *"run view"*)
+    cat "$RESPONSE_DIR/run_logs" 2>/dev/null ;;
+  *)
+    echo "mock gh: unhandled: $*" >&2; exit 1 ;;
+esac
+GHEOF
+  sed -i.bak "s|__RESPONSE_DIR__|$response_dir|g" "$MOCK_GH" 2>/dev/null || \
+    sed -i '' "s|__RESPONSE_DIR__|$response_dir|g" "$MOCK_GH"
+  rm -f "$MOCK_GH.bak"
+  chmod +x "$MOCK_GH"
+}
+
+run_poll() {
+  PATH="$MOCK_DIR:$PATH" bash "$POLL_SCRIPT" "$@"
+}
+
+run_loop() {
+  PATH="$MOCK_DIR:$PATH" bash "$LOOP_SCRIPT" "$@"
+}
+
+# ============================================================
+# Test 1: ci-poll.sh — all checks clean
+# ============================================================
+echo "--- ci-poll.sh: all checks clean ---"
+RESP="$TMPDIR_BASE/t1"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"},{"__typename":"StatusContext","context":"Kochiku","state":"SUCCESS","targetUrl":"https://example.com"}]
+EOF
+echo "CLEAN" > "$RESP/merge_state"
+echo "[]" > "$RESP/reviews"
+echo "[]" > "$RESP/pr_comments"
+create_mock_gh "$RESP"
+
+result=$(run_poll --pr 1 --repo owner/name --sha abc123)
+assert_json "$result" '.ci_status' 'clean' "ci_status is clean"
+assert_json "$result" '.check_summary.total' '2' "total checks = 2"
+assert_json "$result" '.check_summary.passed' '2' "passed checks = 2"
+assert_json "$result" '.check_summary.failed' '0' "failed checks = 0"
+assert_json "$result" '.merge_state' 'CLEAN' "merge_state is CLEAN"
+
+# ============================================================
+# Test 2: ci-poll.sh — SHA mismatch (stale)
+# ============================================================
+echo "--- ci-poll.sh: SHA mismatch ---"
+result=$(run_poll --pr 1 --repo owner/name --sha wrong_sha)
+assert_json "$result" '.ci_status' 'stale' "ci_status is stale on SHA mismatch"
+
+# ============================================================
+# Test 3: ci-poll.sh — mixed failures (CheckRun + StatusContext)
+# ============================================================
+echo "--- ci-poll.sh: mixed failures ---"
+RESP="$TMPDIR_BASE/t3"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"},{"__typename":"StatusContext","context":"Kochiku","state":"FAILURE","targetUrl":"https://kochiku.example.com"},{"__typename":"StatusContext","context":"Task List","state":"ERROR","targetUrl":"https://example.com/tasks"}]
+EOF
+echo "BLOCKED" > "$RESP/merge_state"
+echo "[]" > "$RESP/reviews"
+echo "[]" > "$RESP/pr_comments"
+create_mock_gh "$RESP"
+
+result=$(run_poll --pr 1 --repo owner/name --sha abc123)
+assert_json "$result" '.ci_status' 'failed' "ci_status is failed with StatusContext failures"
+assert_json "$result" '.check_summary.failed' '2' "2 failed checks"
+assert_json "$result" '.failed_checks | length' '2' "2 entries in failed_checks"
+assert_json "$result" '.failed_checks[0].type' 'StatusContext' "first failure is StatusContext"
+assert_json "$result" '.merge_state' 'BLOCKED' "merge_state is BLOCKED"
+
+# ============================================================
+# Test 4: ci-poll.sh — pending checks
+# ============================================================
+echo "--- ci-poll.sh: pending checks ---"
+RESP="$TMPDIR_BASE/t4"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"IN_PROGRESS","conclusion":null,"detailsUrl":"https://example.com"},{"__typename":"StatusContext","context":"Kochiku","state":"PENDING","targetUrl":"https://example.com"}]
+EOF
+echo "BLOCKED" > "$RESP/merge_state"
+echo "[]" > "$RESP/reviews"
+echo "[]" > "$RESP/pr_comments"
+create_mock_gh "$RESP"
+
+result=$(run_poll --pr 1 --repo owner/name --sha abc123)
+assert_json "$result" '.ci_status' 'pending' "ci_status is pending"
+assert_json "$result" '.check_summary.pending' '2' "2 pending checks"
+
+# ============================================================
+# Test 5: ci-poll.sh — review bot with comments
+# ============================================================
+echo "--- ci-poll.sh: review bot with comments ---"
+RESP="$TMPDIR_BASE/t5"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"}]
+EOF
+echo "CLEAN" > "$RESP/merge_state"
+echo '[{"id":99,"state":"COMMENTED","user":{"login":"bot[bot]"},"commit_id":"abc123"}]' > "$RESP/reviews"
+echo '[{"id":1,"path":"file.txt","body":"fix this"}]' > "$RESP/review_comments"
+echo "[]" > "$RESP/pr_comments"
+create_mock_gh "$RESP"
+
+result=$(run_poll --pr 1 --repo owner/name --sha abc123 --review-bot "bot[bot]")
+assert_json "$result" '.review_bot.status' 'failed' "review_bot status is failed when comments exist"
+assert_json "$result" '.review_bot.comment_count' '1' "review has 1 comment"
+
+# ============================================================
+# Test 6: ci-poll.sh — review bot clean (no comments)
+# ============================================================
+echo "--- ci-poll.sh: review bot clean ---"
+RESP="$TMPDIR_BASE/t6"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"}]
+EOF
+echo "CLEAN" > "$RESP/merge_state"
+echo '[{"id":99,"state":"APPROVED","user":{"login":"bot[bot]"},"commit_id":"abc123"}]' > "$RESP/reviews"
+echo '[]' > "$RESP/review_comments"
+echo "[]" > "$RESP/pr_comments"
+create_mock_gh "$RESP"
+
+result=$(run_poll --pr 1 --repo owner/name --sha abc123 --review-bot "bot[bot]")
+assert_json "$result" '.review_bot.status' 'clean' "review_bot status is clean when approved"
+
+# ============================================================
+# Test 7: ci-poll.sh — no review bot (skipped)
+# ============================================================
+echo "--- ci-poll.sh: no review bot ---"
+RESP="$TMPDIR_BASE/t7"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"}]
+EOF
+echo "CLEAN" > "$RESP/merge_state"
+echo "[]" > "$RESP/pr_comments"
+create_mock_gh "$RESP"
+
+result=$(run_poll --pr 1 --repo owner/name --sha abc123)
+assert_json "$result" '.review_bot.status' 'skipped' "review_bot status is skipped when no bot configured"
+
+# ============================================================
+# Test 8: ci-loop.sh — clean result returns action "done"
+# ============================================================
+echo "--- ci-loop.sh: clean → action done ---"
+RESP="$TMPDIR_BASE/t8"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"}]
+EOF
+echo "CLEAN" > "$RESP/merge_state"
+echo "[]" > "$RESP/reviews"
+echo "[]" > "$RESP/pr_comments"
+create_mock_gh "$RESP"
+
+result=$(run_loop --pr 1 --repo owner/name --sha abc123 --timeout 15)
+assert_json "$result" '.action' 'done' "action is done when clean"
+assert_json "$result" '.ci_status' 'clean' "ci_status is clean"
+
+# ============================================================
+# Test 9: ci-loop.sh — failure returns action "fix_ci" with logs
+# ============================================================
+echo "--- ci-loop.sh: failure → action fix_ci ---"
+RESP="$TMPDIR_BASE/t9"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"FAILURE","detailsUrl":"https://github.com/owner/name/actions/runs/12345/job/67890"}]
+EOF
+echo "BLOCKED" > "$RESP/merge_state"
+echo "[]" > "$RESP/reviews"
+echo "[]" > "$RESP/pr_comments"
+echo "Error: tests failed on line 42" > "$RESP/run_logs"
+create_mock_gh "$RESP"
+
+result=$(run_loop --pr 1 --repo owner/name --sha abc123 --timeout 15)
+assert_json "$result" '.action' 'fix_ci' "action is fix_ci on failure"
+# ci_logs should contain something (the mock returns run logs)
+ci_logs=$(echo "$result" | jq -r '.ci_logs')
+if [ -n "$ci_logs" ] && [ "$ci_logs" != "" ]; then
+  pass "ci_logs is populated"
+else
+  fail "ci_logs is empty"
+fi
+
+# ============================================================
+# Summary
+# ============================================================
+echo ""
+echo "Results: $passed passed, $failed failed"
+if [ $failed -gt 0 ]; then
+  exit 1
+fi
