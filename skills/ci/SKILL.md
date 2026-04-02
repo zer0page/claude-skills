@@ -58,7 +58,7 @@ New commit (not amend). Push. (Review bot is re-requested automatically by ci-lo
 
 ### 5. Continue or stop
 
-Not last attempt → back to step 1. Last attempt → fix + commit + push, then one final poll (step 1, read-only — no more fixes) to get actual CI/review state, then Completion.
+Not last attempt → back to step 1. Last attempt → fix + commit + push, then one final poll (step 1 — no more fixes) to get actual CI/review state, then Completion.
 
 ## Exit Criteria
 
