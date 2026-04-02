@@ -116,26 +116,23 @@ while true; do
   # --- CI ---
   has_checks=$(echo "$poll_result" | jq 'has("checks")')
   if [ "$has_checks" = "true" ]; then
+    # Return immediately on any CI failure (don't wait for other checks)
+    non_success=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == true and .state != "SUCCESS" and .state != "NEUTRAL")] | length')
+    if [ "$non_success" -gt 0 ]; then
+      break
+    fi
+
+    # All checks resolved and clean?
     check_pending=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == false)] | length')
-
     if [ "$check_pending" -eq 0 ]; then
-      non_success=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == true and .state != "SUCCESS" and .state != "NEUTRAL")] | length')
-
-      if [ "$non_success" -gt 0 ]; then
-        break  # CI failure — return
-      fi
-
       # CI clean — final review check
       if $has_comments; then
-        break  # Comments to address before completing
+        break
       fi
-
-      # If we reach here: CI clean + no comments (filtered above).
       # Done if no bot configured or bot already reviewed clean.
       if [ "$has_bot" = "false" ] || [ -n "$review_state" ]; then
         break
       fi
-      # CI clean but bot hasn't reviewed yet — keep waiting (up to next window expiry)
     fi
   fi
 
