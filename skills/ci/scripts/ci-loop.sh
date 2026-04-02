@@ -154,9 +154,16 @@ if [ "$human_ids" -gt 0 ]; then
 fi
 
 # --- Output: ci-poll.sh data + fetched details ---
-echo "$poll_result" | jq -c \
+# Sanitize control characters (U+0000–U+001F) that crash standalone jq
+sanitize() { tr -d '\000-\010\013\014\016-\037'; }
+
+poll_clean=$(echo "$poll_result" | sanitize)
+review_clean=$(echo "$review_comments" | sanitize)
+human_clean=$(echo "$human_comment_details" | sanitize)
+
+echo "$poll_clean" | jq -c \
   --argjson timed_out "$timed_out" \
   --arg ci_logs "$ci_logs" \
-  --argjson review_comments "$review_comments" \
-  --argjson human_comment_details "$human_comment_details" \
+  --argjson review_comments "$review_clean" \
+  --argjson human_comment_details "$human_clean" \
   '. + {timed_out: $timed_out, ci_logs: $ci_logs, review_comments: $review_comments, human_comment_details: $human_comment_details}'
