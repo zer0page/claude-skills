@@ -33,13 +33,13 @@ REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
 
 Recompute `LATEST_SHA=$(git rev-parse HEAD)` at the start of each attempt (it changes after each push).
 
-**Error handling:** Every `gh` command in this loop must be validated. If a command exits non-zero or returns empty/null, retry after 10s. If it fails twice consecutively, report the error to the user and stop — do not treat it as success or continue the loop.
+**Error handling:** If a `gh` command in this loop exits non-zero or returns empty/null, log the error, wait 10s, and retry on the next poll iteration. Do not treat failures as success or continue the workflow without addressing them.
 
 ### 1. Wait for CI
 
 ```bash
 LATEST_SHA=$(git rev-parse HEAD)
-result=$(gh run list --branch "$BRANCH" --limit 1 --json status,conclusion,databaseId,headSha --jq '.[0]')
+result=$(gh run list --branch "$BRANCH" --limit 1 --json status,conclusion,databaseId,headSha --jq '.[0] // empty')
 if [ $? -ne 0 ] || [ -z "$result" ]; then
   echo "gh run list failed — retrying"
   sleep 10; continue  # retry on next poll iteration
