@@ -87,7 +87,7 @@ _Skipped only with `--quick`._
 2. Ask the user to approve the merge
 3. On approval:
    - Squash merge with `gh pr merge --squash` (do not use `--delete-branch` — it tries to checkout main locally, which fails in worktrees)
-   - Verify merge completed: `gh pr view --json state --jq '.state'` (must be `"MERGED"`)
+   - Verify merge completed: `gh pr view --json state --jq '.state'` (must be `MERGED`)
    - Delete the remote branch: `BRANCH=$(gh pr view --json headRefName --jq '.headRefName') && [ -n "$BRANCH" ] && git push origin --delete "$BRANCH"`
    - Exit the worktree with `ExitWorktree action: "remove", discard_changes: true` (safe — squash merge confirmed on main)
    - Switch to main and pull to sync the merge locally

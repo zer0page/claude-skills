@@ -73,7 +73,7 @@ for i in $(seq 1 60); do
   review_state=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
     --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .state // empty")
   if [ -n "$review_state" ]; then break; fi
-  sleep 10
+  if [ $i -lt 60 ]; then sleep 10; fi
 done
 ```
 If no review after 10 minutes, proceed without it.
