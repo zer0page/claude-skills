@@ -48,7 +48,6 @@ run_status=$(echo "$result" | jq -r '.status')
 run_conclusion=$(echo "$result" | jq -r '.conclusion')
 run_id=$(echo "$result" | jq -r '.databaseId')
 run_sha=$(echo "$result" | jq -r '.headSha')
-# Only act on results for the current commit
 if [ "$run_sha" != "$LATEST_SHA" ]; then
   echo "Stale run (sha=$run_sha, expected=$LATEST_SHA) — keep polling"
   sleep 10; continue
