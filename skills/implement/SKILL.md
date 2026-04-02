@@ -19,7 +19,7 @@ All `/implement` runs use a worktree for isolation.
 - **Active:** Phases 2–9 operate inside the worktree
 - **Exit:** Phase 9 — `remove` on merge, `keep` otherwise
 
-Name the worktree with a slug derived from the feature description (lowercase, hyphens, max 30 chars, e.g. `fix-auth-timeout`). If `EnterWorktree` fails (name collision), append a short suffix and retry.
+Name the worktree with a slug derived from the feature description (lowercase, hyphens, max 30 chars, e.g. `fix-auth-timeout`). If `EnterWorktree` fails (name collision), append `-2`, `-3`, etc. and retry.
 
 ## Phase 1: Brainstorm
 
@@ -43,11 +43,11 @@ _Skipped only with `--quick`._
 _Skipped only with `--quick`._
 
 1. Run `/audit` on the plan file before asking the user to approve
-2. Revise the plan based on audit findings
+2. Fix findings immediately — revise the plan based on audit results
 3. Update the plan file
-4. Only after this phase is complete, proceed to Phase 4
+4. **Proceed directly to Phase 4** — do not stop or wait after the audit
 
-Fix findings and continue to the next phase. If a finding requires a scope or design decision change, ask the user first.
+If a finding requires a scope or design decision change, ask the user first. Otherwise fix and advance.
 
 ## Phase 4: Gate — user approves execution
 
@@ -56,7 +56,7 @@ Present the final plan and ask the user to approve before writing any code. Do n
 ## Phase 5: Implement
 
 1. Exit plan mode
-2. The worktree branch (created by `EnterWorktree` in Phase 2) is already active. Never commit directly to main.
+2. You are inside the worktree created in Phase 2 — the branch is already checked out. Never commit directly to main.
 3. Build the feature, following the plan
 4. Keep changes minimal and focused on the plan
 5. Commit locally with a descriptive message — do not push yet. Phase 6 comes first (or Phase 7 if `--quick`).
@@ -67,11 +67,11 @@ _Skipped only with `--quick`._
 
 1. Ensure all changes are committed locally (do not push)
 2. Run `/audit --diff` on the changes
-3. Fix any issues found
-4. Commit the fixes
-5. Verify `git status` is clean. Only after this phase is complete, proceed to Phase 7
+3. Fix findings immediately and commit the fixes
+4. Verify `git status` is clean
+5. **Proceed directly to Phase 7** — do not stop or wait after the audit
 
-Fix findings and continue to the next phase. If a finding requires a scope or design decision change, ask the user first.
+If a finding requires a scope or design decision change, ask the user first. Otherwise fix and advance.
 
 ## Phase 7: Simplify
 
@@ -84,7 +84,7 @@ Fix findings and continue to the next phase. If a finding requires a scope or de
 
 1. Push and create a draft PR
 2. Run `/ci --max 10` — fix failures and review comments until clean
-3. If `/ci` offers to merge or switch to main, decline — worktree exit happens in Phase 9
+3. When `/ci` completes, select "Mark ready" — do not merge or switch to main. Phase 9 handles the merge.
 
 ## Phase 9: Gate — user approves merge
 
@@ -92,7 +92,8 @@ Fix findings and continue to the next phase. If a finding requires a scope or de
 2. Ask the user to approve the merge
 3. On approval:
    - Mark PR ready and squash merge
-   - Verify `git status` is clean
+   - Verify `git status` is clean inside the worktree
    - Exit the worktree with `ExitWorktree action: "remove"`
-4. If not approved (mark ready, clean up and reopen, etc.):
+   - Switch to main and pull to sync the merge locally
+4. If not approved:
    - Exit the worktree with `ExitWorktree action: "keep"`
