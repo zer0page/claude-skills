@@ -54,7 +54,7 @@ if [ "$run_sha" != "$LATEST_SHA" ]; then
 fi
 ```
 
-Poll every 10s until `$run_status` is `completed` **and** `$run_sha` matches `$LATEST_SHA`. If `$run_sha` does not match, the run is stale — keep polling. If `gh` fails, retry on the next poll iteration. If it fails twice consecutively, stop and report the error. Use `$run_id` for log retrieval.
+Poll every 10s until `$run_status` is `completed` **and** `$run_sha` matches `$LATEST_SHA`. If `$run_sha` does not match, the run is stale — keep polling. If `gh` fails, log the error and retry on the next poll iteration. Use `$run_id` for log retrieval.
 
 Check `$run_conclusion`:
 - `"success"` → proceed to step 2
