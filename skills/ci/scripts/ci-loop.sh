@@ -53,6 +53,12 @@ if [ -n "$REVIEW_BOT" ]; then
   POLL_ARGS+=(--review-bot "$REVIEW_BOT")
 fi
 
+# --- Request review bot upfront (so it knows to review this PR) ---
+if [ -n "$REVIEW_BOT" ]; then
+  gh api "repos/$OWNER/$NAME/pulls/$PR/requested_reviewers" \
+    -X POST -f "reviewers[]=$REVIEW_BOT" 2>/dev/null || true
+fi
+
 # --- Polling loop: exit when all checks resolved and review resolved ---
 elapsed=0
 poll_result=""
@@ -71,10 +77,12 @@ while [ $elapsed -lt "$TIMEOUT" ]; do
   check_pending=$(echo "$poll_result" | jq -r '.check_counts.pending // 0')
 
   # Check if review bot has responded (review_state is non-null, or no bot configured)
+  # 5-min review timeout: if bot hasn't responded, proceed without it
   review_state=$(echo "$poll_result" | jq -r '.review_state // empty')
   if [ -n "$REVIEW_BOT" ]; then
     review_resolved=false
     [ -n "$review_state" ] && review_resolved=true
+    [ $elapsed -ge 300 ] && review_resolved=true
   else
     review_resolved=true
   fi
