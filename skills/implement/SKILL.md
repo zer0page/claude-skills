@@ -1,15 +1,15 @@
 ---
 name: implement
-description: Full development workflow — brainstorm, plan, audit, simplify, build, ship. Orchestrates /brainstorming, /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use --quick to skip brainstorming and audits for trivial changes. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
+description: Full development workflow — brainstorm, plan, audit, simplify, build, ship. Orchestrates /brainstorming, /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use --quick to skip audits for trivial changes. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
 ---
 
 # /implement [description] [--quick]
 
-End-to-end workflow for building features and updates. **Every phase is mandatory and sequential — do not skip or reorder phases.** The only exception is `--quick`, which skips brainstorming and audit phases.
+End-to-end workflow for building features and updates. **Every phase is mandatory and sequential — do not skip or reorder phases.** The only exception is `--quick`, which skips audit phases.
 
-`--quick` skips Phase 1 (brainstorming), Phase 3 (audit plan), and Phase 6 (audit diff) for trivial changes. All other phases are always required.
+`--quick` skips Phase 3 (audit plan) and Phase 6 (audit diff) for trivial changes. All other phases are always required.
 
-**Auto-quick:** If `--quick` was not specified but the change appears trivial (single-file fix, small bug fix, minor update), use `AskUserQuestion` to ask the user whether to run with `--quick`. Do not silently skip or silently run full phases — always confirm.
+**Auto-quick:** If `--quick` was not specified but the change appears trivial (single-file fix, small bug fix, minor update), use `AskUserQuestion` to ask the user whether to run with `--quick`. `--quick` only skips audits — brainstorming still runs.
 
 ## Worktree isolation
 
@@ -23,8 +23,6 @@ Name the worktree with a slug derived from the feature description (lowercase, h
 
 ## Phase 1: Brainstorm
 
-_Skipped only with `--quick`._
-
 1. Run `/brainstorming` to explore the idea before planning
 2. Validate understanding, surface assumptions, and explore design approaches
 3. Only after the brainstorming exit criteria are met, proceed to Phase 2
@@ -32,11 +30,12 @@ _Skipped only with `--quick`._
 ## Phase 2: Plan
 
 1. Enter a worktree with `EnterWorktree`: if a description was provided, use its slugified form as the name; otherwise let `EnterWorktree` generate one. This creates a new branch from HEAD.
-2. Enter plan mode
-3. Use the validated design from Phase 1 to write a concrete implementation plan
-4. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — fix any issues as part of the plan
-5. Ask the user clarifying questions if anything remains unresolved
-6. Do not exit plan mode yet — next is Phase 3 (or Phase 4 if using `--quick`)
+2. If `git config user.name` is empty, configure git identity: try the parent repo's config first (`git -C <parent> config user.name`), fall back to the latest commit (`git log -1 --format='%an'` / `'%ae'`), then set with `git config user.name` and `git config user.email`
+3. Enter plan mode
+4. Use the validated design from Phase 1 to write a concrete implementation plan
+5. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — fix any issues as part of the plan
+6. Ask the user clarifying questions if anything remains unresolved
+7. Do not exit plan mode yet — next is Phase 3 (or Phase 4 if using `--quick`)
 
 ## Phase 3: Audit plan
 
@@ -87,9 +86,10 @@ _Skipped only with `--quick`._
 1. Report the PR URL and status
 2. Ask the user to approve the merge
 3. On approval:
-   - Squash merge the PR (already marked ready in Phase 8)
-   - Verify `git status` is clean inside the worktree
-   - Exit the worktree with `ExitWorktree action: "remove"`
+   - Squash merge with `gh pr merge --squash` (do not use `--delete-branch` — it tries to checkout main locally, which fails in worktrees)
+   - Verify merge completed: `gh pr view --json merged --jq .merged` (must be `true`)
+   - Delete the remote branch: `BRANCH=$(gh pr view --json headRefName --jq '.headRefName') && [ -n "$BRANCH" ] && git push origin --delete "$BRANCH"`
+   - Exit the worktree with `ExitWorktree action: "remove", discard_changes: true` (safe — squash merge confirmed on main)
    - Switch to main and pull to sync the merge locally
 4. If not approved:
    - Exit the worktree with `ExitWorktree action: "keep"`
