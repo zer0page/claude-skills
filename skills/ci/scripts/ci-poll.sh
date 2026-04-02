@@ -76,13 +76,17 @@ checks=$(echo "$checks_json" | jq -c '[.[] | {
   url: (if .__typename == "CheckRun" then .detailsUrl else .targetUrl end)
 }]')
 
-# Counts (arithmetic, not interpretation)
-total=$(echo "$checks" | jq 'length')
-pending=$(echo "$checks" | jq '[.[] | select(.resolved == false)] | length')
-failed=$(echo "$checks" | jq '[.[] | select(.resolved == true) | select(.state == "FAILURE" or .state == "ERROR" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED")] | length')
-
-# Failed checks list
-failed_checks=$(echo "$checks" | jq -c '[.[] | select(.resolved == true) | select(.state == "FAILURE" or .state == "ERROR" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED")]')
+# Extract counts and failed checks in one jq call
+check_stats=$(echo "$checks" | jq -c '{
+  total: length,
+  pending: [.[] | select(.resolved == false)] | length,
+  failed: [.[] | select(.resolved == true) | select(.state == "FAILURE" or .state == "ERROR" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED")] | length,
+  failed_checks: [.[] | select(.resolved == true) | select(.state == "FAILURE" or .state == "ERROR" or .state == "TIMED_OUT" or .state == "ACTION_REQUIRED")]
+}')
+total=$(echo "$check_stats" | jq '.total')
+pending=$(echo "$check_stats" | jq '.pending')
+failed=$(echo "$check_stats" | jq '.failed')
+failed_checks=$(echo "$check_stats" | jq -c '.failed_checks')
 
 # --- 3. Review bot ---
 review_state="null"

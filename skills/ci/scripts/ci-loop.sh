@@ -126,27 +126,15 @@ if [ "$review_comment_count" -gt 0 ] && [ -n "$review_id" ] && [ "$review_id" !=
     --jq '[.[] | {id, path, body}]' 2>/dev/null || echo "[]")
 fi
 
-# --- Fetch human comment details (raw GitHub API response) ---
+# --- Fetch human comment details (batch — one API call, filter client-side) ---
 human_comment_details="[]"
-human_ids=$(echo "$poll_result" | jq -r '.human_comment_ids | length // 0')
+human_id_json=$(echo "$poll_result" | jq -c '.human_comment_ids // []')
+human_ids=$(echo "$human_id_json" | jq 'length')
 
 if [ "$human_ids" -gt 0 ]; then
-  comment_ids=$(echo "$poll_result" | jq -r '.human_comment_ids[]')
-  details="["
-  first=true
-  for cid in $comment_ids; do
-    if [ -n "$cid" ]; then
-      detail=$(gh api "repos/$OWNER/$NAME/pulls/comments/$cid" \
-        --jq '{id, path, body, user: .user.login}' 2>/dev/null || echo "null")
-      if [ "$detail" != "null" ]; then
-        $first || details="$details,"
-        details="$details$detail"
-        first=false
-      fi
-    fi
-  done
-  details="$details]"
-  human_comment_details="$details"
+  all_comments=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" 2>/dev/null || echo "[]")
+  human_comment_details=$(echo "$all_comments" | jq -c --argjson ids "$human_id_json" \
+    '[.[] | select(.id as $id | $ids | index($id)) | {id, path, body, user: .user.login}]')
 fi
 
 # --- Output: ci-poll.sh data + fetched details ---
