@@ -17,7 +17,7 @@ All `/implement` runs use a worktree for isolation.
 
 - **Enter:** Phase 2, step 1 — before entering plan mode.
 - **Active:** Phases 2–8, and Phase 9 until `ExitWorktree`.
-- **Exit:** Phase 9 — `remove` on merge, `keep` otherwise.
+- **Exit:** Phase 9 — `remove` on merge, `keep` otherwise. Also exits after Phase 8 if `/ci` completes with "Merge and close" (Phase 9 is skipped).
 
 Name the worktree with a slug derived from the feature description (lowercase, hyphens, max 30 chars, e.g. `fix-auth-timeout`). If no description is provided, omit the name and let `EnterWorktree` generate one. If `EnterWorktree` fails (name collision), append `-2`, `-3`, etc. and retry.
 
