@@ -25,7 +25,7 @@ Each fix + commit + push = one attempt. Max N attempts (default 5).
 
 ### 1. Poll
 
-Run `ci-loop.sh` with `--pr`, `--repo`, `--sha`, and optionally `--review-bot`. One Bash call — blocks until actionable.
+Run `{{SKILL_DIR}}/scripts/ci-loop.sh` with `--pr`, `--repo`, `--sha`, and optionally `--review-bot`. One Bash call — blocks until actionable.
 
 ### 2. Decide
 
@@ -55,7 +55,7 @@ New commit (not amend). Push. Re-request review bot if configured.
 
 ### 5. Continue or stop
 
-Not last attempt → back to step 1. Last attempt → fix + push, then Completion.
+Not last attempt → back to step 1. Last attempt → fix + commit + push, then Completion.
 
 ## Exit Criteria
 

@@ -19,7 +19,7 @@ Prevents: skipping phases, committing to main, implementing without a plan, ship
 
 You are an **orchestrator** — delegate to sub-skills, gate on user approval between phases. Never implement without a plan. Never commit to main directly.
 
-All work happens in a worktree. Enter in Phase 2, exit in Phase 9 (`remove` on merge, `keep` otherwise).
+All work happens in a worktree. Enter in Phase 2, exit in Phase 8 (if `/ci` merges) or Phase 9 (`remove` on merge, `keep` otherwise).
 
 Name the worktree from the description (lowercase, hyphens, max 30 chars). If collision, append `-2`, `-3`, etc.
 
@@ -75,17 +75,17 @@ _Skipped with `--quick`._
 
 1. Push and create draft PR.
 2. Run `/ci --max 10`.
-3. `/ci` presents completion options (merge only if `mergeStateStatus` is `CLEAN`):
-   - **Mark ready** → Phase 9.
-   - **Clean up and reopen** → re-fetch PR URL, Phase 9.
-   - **Merge and close** → skip Phase 9, `ExitWorktree remove`, switch to main.
+3. `/ci` presents completion options:
+   - **Mark ready** → remove draft status, proceed to Phase 9.
+   - **Clean up and reopen** → squash commits, force-push, close and reopen PR. Re-fetch new PR URL, proceed to Phase 9.
+   - **Merge and close** _(only if `merge_state` is `CLEAN`)_ → squash merge, delete remote branch, `ExitWorktree remove`, switch to main. Skip Phase 9.
 
-### Phase 9: Gate — user approves merge
+### Phase 9: Gate — user decides
 
 1. Report PR URL and status.
-2. `AskUserQuestion` for merge approval.
-3. On approval: `gh pr merge --squash`, verify `MERGED`, delete remote branch, `ExitWorktree remove`, switch to main and pull.
-4. If not approved: `ExitWorktree keep`.
+2. `AskUserQuestion`: approve merge, or keep worktree for later.
+3. On merge approval: `gh pr merge --squash`, verify `MERGED`, delete remote branch, `ExitWorktree remove`, switch to main and pull.
+4. Otherwise: `ExitWorktree keep`.
 
 ## Exit Criteria
 

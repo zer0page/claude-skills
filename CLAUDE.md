@@ -4,7 +4,7 @@ Before committing, run any `test_*` scripts found in the changed skill's directo
 
 ## SKILL.md style
 
-Every SKILL.md follows this structure:
+SKILL.md files should follow this structure:
 
 1. **Purpose** — What this skill does. What it prevents (anti-patterns). Constraints.
 2. **Operating Mode** — Persona or mindset. What NOT to do.
