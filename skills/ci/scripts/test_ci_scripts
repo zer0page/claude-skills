@@ -222,10 +222,10 @@ echo "[]" > "$RESP/reviews"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_loop --pr 1 --repo owner/name --sha abc123 --timeout 15)
+result=$(run_loop --pr 1 --repo owner/name --sha abc123)
 assert_json "$result" '[.checks[] | select(.state == "SUCCESS")] | length' '1' "loop: 1 passed"
 assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '0' "loop: 0 pending"
-assert_json "$result" '.timed_out' 'false' "loop: not timed out"
+assert_json "$result" '.review_bot_timeout' 'false' "loop: no bot timeout"
 assert_json "$result" '.ci_logs' '' "loop: no ci_logs"
 
 echo "--- ci-loop.sh: failure fetches logs ---"
@@ -241,7 +241,7 @@ echo "[]" > "$RESP/pr_comments"
 echo "Error: tests failed on line 42" > "$RESP/run_logs"
 create_mock_gh "$RESP"
 
-result=$(run_loop --pr 1 --repo owner/name --sha abc123 --timeout 15)
+result=$(run_loop --pr 1 --repo owner/name --sha abc123)
 assert_json "$result" '[.checks[] | select(.state == "FAILURE")] | length' '1' "loop: 1 failed check"
 ci_logs=$(echo "$result" | jq -r '.ci_logs')
 if echo "$ci_logs" | grep -q "Run 12345"; then
@@ -251,8 +251,26 @@ else
 fi
 
 echo "--- ci-loop.sh: SHA mismatch exits immediately ---"
-result=$(run_loop --pr 1 --repo owner/name --sha wrong_sha --timeout 15)
+result=$(run_loop --pr 1 --repo owner/name --sha wrong_sha)
 assert_json "$result" '.sha_match' 'false' "loop: exits on SHA mismatch"
+
+echo "--- ci-loop.sh: review comments trigger early return ---"
+RESP="$TMPDIR_BASE/t10"
+mkdir -p "$RESP"
+echo "abc123" > "$RESP/head_sha"
+cat > "$RESP/checks" << 'EOF'
+[{"__typename":"CheckRun","name":"build","status":"IN_PROGRESS","conclusion":null,"detailsUrl":"https://example.com"}]
+EOF
+echo "BLOCKED" > "$RESP/merge_state"
+echo '[{"id":99,"state":"COMMENTED","user":{"login":"bot[bot]"},"commit_id":"abc123"}]' > "$RESP/reviews"
+echo '[{"id":1,"path":"file.txt","body":"fix this"}]' > "$RESP/review_comments"
+echo "[]" > "$RESP/pr_comments"
+create_mock_gh "$RESP"
+
+result=$(run_loop --pr 1 --repo owner/name --sha abc123 --review-bot "bot[bot]")
+assert_json "$result" '.review_comment_count' '1' "loop: review comments returned"
+# CI still pending but loop returned early due to review comments
+assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '1' "loop: CI still pending (early return)"
 
 # ============================================================
 # Summary

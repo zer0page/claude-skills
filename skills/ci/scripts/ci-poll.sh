@@ -99,10 +99,12 @@ if [ -n "$REVIEW_BOT" ]; then
 fi
 
 # --- 4. Human review comments on latest commit ---
+# Filter by user.type != "Bot" (GitHub uses different logins in reviews vs comments API,
+# but user.type is consistent).
 human_comment_ids="[]"
 
 human_comments=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" \
-  --jq "[.[] | select(.commit_id == \"$SHA\" or .original_commit_id == \"$SHA\")$([ -n "$REVIEW_BOT" ] && echo " | select(.user.login != \"$REVIEW_BOT\")")] | [.[].id]" 2>/dev/null || echo "[]")
+  --jq "[.[] | select(.commit_id == \"$SHA\" or .original_commit_id == \"$SHA\") | select(.user.type != \"Bot\")] | [.[].id]" 2>/dev/null || echo "[]")
 
 if [ -n "$human_comments" ] && [ "$human_comments" != "null" ]; then
   human_comment_ids="$human_comments"
