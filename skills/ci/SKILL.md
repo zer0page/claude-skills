@@ -76,7 +76,7 @@ Use `merge_state` from last poll. `AskUserQuestion` with options:
    1. `gh pr ready` if still draft.
    2. `gh pr merge --squash` (no `--delete-branch` — fails in worktrees).
    3. Verify `MERGED` via `gh pr view --json state` — if not, stop and report error.
-   4. Delete remote branch: `git push origin --delete BRANCH` (ignore if auto-deleted).
+   4. Delete remote branch: `git push origin --delete BRANCH` (ignore if auto-deleted; assumes `origin` remote).
 
 If not `CLEAN`: note the state (`DRAFT`, `BLOCKED`, `DIRTY`, `BEHIND`, `UNSTABLE`).
 
