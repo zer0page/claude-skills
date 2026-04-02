@@ -5,88 +5,78 @@ description: Watch CI + bot reviews on the current PR, fix failures, push, loop 
 
 # /ci [--max N]
 
-Fix loop for the current branch's PR. **Never skip or short-circuit — always complete the full loop.**
+## Purpose
 
-## Preconditions
+Fix loop for the current branch's PR. Poll CI and reviews, fix failures and comments, push, repeat until green.
 
-```bash
-BRANCH=$(git branch --show-current)
-PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty')
-if [ -z "$PR" ]; then echo "No PR found for branch $BRANCH"; exit 1; fi
-REPO=$(gh repo view --json owner,name --jq '.owner.login + "/" + .name')
-if [ -z "$REPO" ]; then echo "Error: could not resolve repo"; exit 1; fi
-OWNER=${REPO%%/*}
-NAME=${REPO##*/}
-ALLOWED_FILES=$(gh pr diff "$PR" --name-only) || { echo "Error: gh pr diff failed"; exit 1; }
-```
+Prevents: short-circuiting the loop, skipping reviews, modifying unrelated files, increasing scope.
 
-Read `CLAUDE.md` for `review_bot`. Default: `copilot-pull-request-reviewer[bot]`. If `none`, omit `--review-bot`.
+**Never skip or abbreviate — always complete the full loop.**
 
-**Scripts:** Use `{{SKILL_DIR}}/scripts/ci-loop.sh` (returns on first actionable event, fetches logs and comments). For fine-grained control, use `{{SKILL_DIR}}/scripts/ci-poll.sh` (single-shot snapshot).
+## Operating Mode
 
-## Loop (max N attempts, default 5)
+You are a **fix loop** — poll, fix, push, repeat. Delegate polling to `{{SKILL_DIR}}/scripts/ci-loop.sh` (returns on first actionable event, fetches logs and comments). For single-shot status, use `{{SKILL_DIR}}/scripts/ci-poll.sh`.
 
-Each fix + commit + push = one attempt.
+Before starting: resolve `BRANCH`, `PR`, `REPO`, `OWNER`, `NAME`, `ALLOWED_FILES` via `gh`. Read `CLAUDE.md` for `review_bot` (default: `copilot-pull-request-reviewer[bot]`, `none` to skip).
+
+## The Process
+
+Each fix + commit + push = one attempt. Max N attempts (default 5).
 
 ### 1. Poll
 
-```bash
-LATEST_SHA=$(git rev-parse HEAD)
-REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
-LOOP_ARGS=(--pr "$PR" --repo "$REPO" --sha "$LATEST_SHA")
-[ -n "$REVIEW_BOT" ] && [ "$REVIEW_BOT" != "none" ] && LOOP_ARGS+=(--review-bot "$REVIEW_BOT")
-
-result=$(bash "{{SKILL_DIR}}/scripts/ci-loop.sh" "${LOOP_ARGS[@]}")
-echo "$result"
-```
+Run `ci-loop.sh` with `--pr`, `--repo`, `--sha`, and optionally `--review-bot`. One Bash call — blocks until actionable.
 
 ### 2. Decide
 
-`ci-loop.sh` returns on the first actionable event. No global timeout — CI can take as long as needed. Read the JSON:
+Read the JSON result:
 
-- `sha_match == false` → `git pull`, recompute `LATEST_SHA`, restart attempt.
-- `error` present → API/network failure. Retry in next attempt.
-- `review_bot_timeout == true` → mention to user ("bot hasn't responded, re-requested"). Not a blocker — continue.
-- `review_comments` or `human_comment_details` non-empty → fix comments (step 3). Pushing restarts CI + re-requests bot.
-- Any check in `checks` with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
-- All checks `SUCCESS`/`NEUTRAL` + no comments → **EXIT → Completion**.
+- `sha_match == false` → `git pull`, recompute SHA, restart.
+- `error` present → retry next attempt.
+- `review_bot_timeout == true` → mention to user, not a blocker.
+- `review_comments` or `human_comment_details` non-empty → fix comments (step 3). Pushing restarts CI.
+- Any check with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
+- All clean + no comments → **done → Completion**.
 
 ### 3. Fix
 
-Logs and comments are pre-fetched in the JSON — no extra API calls.
+Logs and comments are pre-fetched — no extra API calls.
 
-- **CI (`ci_logs`):** CheckRun logs included directly. StatusContext failures have name + URL — use `WebFetch <url>` for details. If behind auth, ask user.
-- **Bot comments (`review_comments`):** `{id, path, body}`.
-- **Human comments (`human_comment_details`):** `{id, path, body, user}`.
-- **Only modify files in `$ALLOWED_FILES`.**
-- **Minimize lines changed.** Do not increase scope.
-- If a comment requires architectural change, stop and notify user.
-- React +1 on addressed comments: `gh api repos/$OWNER/$NAME/pulls/comments/$COMMENT_ID/reactions -f content="+1"`
-
-**Flaky CI:** Extract first failing job + first 200 chars as error signature. If identical across 2 consecutive attempts, `AskUserQuestion`:
-1. Retry anyway
-2. Skip CI → Completion
-3. Stop and report
+- **CI:** CheckRun logs in `ci_logs`. StatusContext failures have URL — `WebFetch` for details. If behind auth, ask user.
+- **Comments:** Bot in `review_comments` (`{id, path, body}`). Human in `human_comment_details` (`{id, path, body, user}`).
+- Only modify `ALLOWED_FILES`. Minimize changes. No scope increase.
+- If comment requires architectural change, stop and notify user.
+- React +1 on addressed comments.
+- **Flaky CI:** Same error signature across 2 attempts → `AskUserQuestion`: retry, skip CI, or stop.
 
 ### 4. Commit and push
 
-1. New commit (not amend) with descriptive message.
-2. Push to PR branch.
-3. Re-request review bot if configured: `gh api repos/$OWNER/$NAME/pulls/$PR/requested_reviewers -X POST -f "reviewers[]=$REVIEW_BOT"`
+New commit (not amend). Push. Re-request review bot if configured.
 
 ### 5. Continue or stop
 
-- Not last attempt → back to step 1.
-- Last attempt → fix + commit + push, then Completion.
+Not last attempt → back to step 1. Last attempt → fix + push, then Completion.
+
+## Exit Criteria
+
+- All checks `SUCCESS`/`NEUTRAL` on latest commit
+- Bot reviewed clean (no actionable comments) on latest commit
+- OR max attempts reached
 
 ## Completion
 
-Use `merge_state` from last poll result. `AskUserQuestion` with applicable options:
+Use `merge_state` from last poll. `AskUserQuestion` with options:
 
 1. **Mark ready (Recommended)** — remove draft status. Do not merge.
-2. **Clean up and reopen** — squash all commits, force-push, close PR, reopen with clean history.
-3. **Merge and close** _(only if `merge_state` is `CLEAN`)_ — mark ready, squash merge, delete remote branch, switch to main.
+2. **Clean up and reopen** — squash, force-push, close, reopen.
+3. **Merge and close** _(only if `CLEAN`)_ — squash merge, delete branch, switch to main.
 
-If not `CLEAN`:
+If not `CLEAN`: note the state (`DRAFT`, `BLOCKED`, `DIRTY`, `BEHIND`, `UNSTABLE`).
 
-> Merge unavailable — PR state: `<merge_state>`. States: `DRAFT` (draft), `BLOCKED` (approval/changes needed), `DIRTY` (conflicts), `BEHIND` (out of date), `UNSTABLE` (checks pending/failing).
+## Key Principles
+
+- Never skip or short-circuit the loop.
+- Only modify files in `ALLOWED_FILES`.
+- Minimize lines changed per fix.
+- Do not deviate from PR design decisions.
+- Do not increase scope.
