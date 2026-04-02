@@ -4,8 +4,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-POLL_SCRIPT="$SCRIPT_DIR/skills/ci/scripts/ci-poll.sh"
-LOOP_SCRIPT="$SCRIPT_DIR/skills/ci/scripts/ci-loop.sh"
+POLL_SCRIPT="$SCRIPT_DIR/ci-poll.sh"
+LOOP_SCRIPT="$SCRIPT_DIR/ci-loop.sh"
 TMPDIR_BASE=$(mktemp -d)
 passed=0
 failed=0
