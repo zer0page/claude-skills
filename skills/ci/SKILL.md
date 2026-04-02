@@ -22,7 +22,7 @@ ALLOWED_FILES=$(gh pr diff "$PR" --name-only) || { echo "Error: gh pr diff faile
 
 Read `CLAUDE.md` for `review_bot`. Default: `copilot-pull-request-reviewer[bot]`. If `none`, omit `--review-bot`.
 
-**Scripts:** Use `{{SKILL_DIR}}/scripts/ci-loop.sh` (blocks until resolved, fetches logs and comments). For fine-grained control, use `{{SKILL_DIR}}/scripts/ci-poll.sh` (single-shot snapshot).
+**Scripts:** Use `{{SKILL_DIR}}/scripts/ci-loop.sh` (returns on first actionable event, fetches logs and comments). For fine-grained control, use `{{SKILL_DIR}}/scripts/ci-poll.sh` (single-shot snapshot).
 
 ## Loop (max N attempts, default 5)
 

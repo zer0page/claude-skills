@@ -83,7 +83,7 @@ while true; do
   # --- Check for actionable reviews ---
   review_state=$(echo "$poll_result" | jq -r '.review_state // empty')
   review_comment_count=$(echo "$poll_result" | jq -r '.review_comment_count // 0')
-  human_count=$(echo "$poll_result" | jq '[.human_comment_ids // [] | length] | .[0]')
+  human_count=$(echo "$poll_result" | jq '.human_comment_ids // [] | length')
   has_comments=false
   { [ "$review_comment_count" -gt 0 ] || [ "$human_count" -gt 0 ]; } && has_comments=true
 
