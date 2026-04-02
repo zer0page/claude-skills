@@ -29,7 +29,7 @@ Name the worktree with a slug derived from the feature description (lowercase, h
 ## Phase 2: Plan
 
 1. Enter a worktree with `EnterWorktree`: use the slugified description as the name, or omit to auto-generate. This creates a new branch from HEAD.
-2. If `git config user.name` is empty, configure git identity:
+2. If `git config user.name` or `git config user.email` is empty, configure git identity:
    ```bash
    if git rev-parse --verify HEAD >/dev/null 2>&1; then
      git config user.name "$(git log -1 --format='%an')"
@@ -37,6 +37,10 @@ Name the worktree with a slug derived from the feature description (lowercase, h
    else
      git config user.name "$(git config --global user.name)"
      git config user.email "$(git config --global user.email)"
+   fi
+   # Verify identity is set — abort if still empty
+   if [ -z "$(git config user.name)" ] || [ -z "$(git config user.email)" ]; then
+     echo "Error: git user.name and user.email must be configured." >&2; exit 1
    fi
    ```
 3. Enter plan mode.
