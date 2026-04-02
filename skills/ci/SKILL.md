@@ -218,4 +218,4 @@ Use `AskUserQuestion` to present the applicable options:
 
 If `merge_state` is not `CLEAN`, include a note explaining why:
 
-> Note: Merge unavailable — PR state is `<merge_state>`. Common reasons: PR is still a draft, requires reviewer approval, or has unmet branch protection requirements.
+> Note: Merge unavailable — PR state is `<merge_state>`. Common reasons: PR is a draft (`DRAFT`), requires reviewer approval (`BLOCKED`), has merge conflicts (`DIRTY`), base branch moved (`BEHIND`), or checks failing (`UNSTABLE`).
