@@ -11,6 +11,16 @@ End-to-end workflow for building features and updates. **Every phase is mandator
 
 **Auto-quick:** If `--quick` was not specified but the change appears trivial (single-file fix, small bug fix, minor update), use `AskUserQuestion` to ask the user whether to run with `--quick`. Do not silently skip or silently run full phases — always confirm.
 
+## Worktree isolation
+
+All `/implement` runs use a worktree for isolation.
+
+- **Enter:** Phase 2, step 1 — before entering plan mode
+- **Active:** Phases 2–9 operate inside the worktree
+- **Exit:** Phase 9 — `remove` on merge, `keep` otherwise
+
+Name the worktree with a slug derived from the feature description (lowercase, hyphens, max 30 chars, e.g. `fix-auth-timeout`). If `EnterWorktree` fails (name collision), append a short suffix and retry.
+
 ## Phase 1: Brainstorm
 
 _Skipped only with `--quick`._
@@ -21,11 +31,12 @@ _Skipped only with `--quick`._
 
 ## Phase 2: Plan
 
-1. Enter plan mode
-2. Use the validated design from Phase 1 to write a concrete implementation plan
-3. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — fix any issues as part of the plan
-4. Ask the user clarifying questions if anything remains unresolved
-5. Do not exit plan mode yet — next is Phase 3 (or Phase 4 if using `--quick`)
+1. Enter a worktree with `EnterWorktree` using the slugified feature description as the name
+2. Enter plan mode
+3. Use the validated design from Phase 1 to write a concrete implementation plan
+4. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — fix any issues as part of the plan
+5. Ask the user clarifying questions if anything remains unresolved
+6. Do not exit plan mode yet — next is Phase 3 (or Phase 4 if using `--quick`)
 
 ## Phase 3: Audit plan
 
@@ -45,7 +56,7 @@ Present the final plan and ask the user to approve before writing any code. Do n
 ## Phase 5: Implement
 
 1. Exit plan mode
-2. Create a branch or worktree from main (never commit directly to main). Use a worktree when running as a parallel agent.
+2. The worktree branch (created by `EnterWorktree` in Phase 2) is already active. Never commit directly to main.
 3. Build the feature, following the plan
 4. Keep changes minimal and focused on the plan
 5. Commit locally with a descriptive message — do not push yet. Phase 6 comes first (or Phase 7 if `--quick`).
@@ -73,6 +84,7 @@ Fix findings and continue to the next phase. If a finding requires a scope or de
 
 1. Push and create a draft PR
 2. Run `/ci --max 10` — fix failures and review comments until clean
+3. If `/ci` offers to merge or switch to main, decline — worktree exit happens in Phase 9
 
 ## Phase 9: Gate — user approves merge
 
@@ -80,5 +92,7 @@ Fix findings and continue to the next phase. If a finding requires a scope or de
 2. Ask the user to approve the merge
 3. On approval:
    - Mark PR ready and squash merge
-   - Switch to main and pull
-   - Confirm completion
+   - Verify `git status` is clean
+   - Exit the worktree with `ExitWorktree action: "remove"`
+4. If not approved (mark ready, clean up and reopen, etc.):
+   - Exit the worktree with `ExitWorktree action: "keep"`
