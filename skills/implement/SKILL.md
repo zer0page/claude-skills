@@ -101,3 +101,4 @@ _Skipped with `--quick`._
 - Always gate on user approval before implementation and merge.
 - Only modify files identified in the plan.
 - Keep changes minimal and focused.
+- Never skip `/ci` — CI detection is handled by the scripts.

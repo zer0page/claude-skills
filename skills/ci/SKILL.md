@@ -78,7 +78,7 @@ If not `CLEAN`: note the state (`DRAFT`, `BLOCKED`, `DIRTY`, `BEHIND`, `UNSTABLE
 
 ## Key Principles
 
-- Never skip or short-circuit the loop.
+- Never skip or short-circuit the loop. Never assume CI is absent — always run ci-loop.sh.
 - Only modify files in `ALLOWED_FILES`.
 - Minimize lines changed per fix.
 - Do not deviate from PR design decisions.
