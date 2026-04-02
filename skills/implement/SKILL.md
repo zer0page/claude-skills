@@ -89,10 +89,10 @@ _Skipped with `--quick`._
 
 1. Push and create a draft PR.
 2. Run `/ci --max 10` — fix failures and review comments until clean.
-3. `/ci` presents completion options:
+3. `/ci` presents completion options (merge only appears if `mergeStateStatus` is `CLEAN`):
    - **Mark ready** → proceed to Phase 9.
    - **Clean up and reopen** → `/ci` closes and reopens the PR. Re-fetch the new PR URL before proceeding to Phase 9.
-   - **Merge and close** → `/ci` handles the merge. Skip Phase 9 and go directly to worktree cleanup: `ExitWorktree action: "remove", discard_changes: true`, then switch to main and pull.
+   - **Merge and close** (only if `CLEAN`) → `/ci` handles the merge. Skip Phase 9 and go directly to worktree cleanup: `ExitWorktree action: "remove", discard_changes: true`, then switch to main and pull.
 
 ## Phase 9: Gate — user approves merge
 

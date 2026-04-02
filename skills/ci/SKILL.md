@@ -199,8 +199,23 @@ Do not report on ticks where both statuses remain unchanged. After each fix, rep
 
 ## Completion
 
-Use `AskUserQuestion` to present three options:
+Check merge eligibility before presenting options. If `gh` fails or returns empty, retry up to 3 times with exponential backoff (1s, 2s, 4s). If all retries fail, report the error and stop.
+
+```bash
+merge_state=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus')
+```
+
+Use `AskUserQuestion` to present the applicable options:
+
+**Options always available:**
 
 1. **Mark ready (Recommended)** — remove draft status. Do not merge.
 2. **Clean up and reopen** — squash all commits into one, force-push, close the PR, reopen with clean history.
+
+**Conditional option — only if `merge_state` is `CLEAN`:**
+
 3. **Merge and close** — mark ready, squash merge into base branch, delete remote branch, switch to main locally.
+
+If `merge_state` is not `CLEAN`, include a note explaining why:
+
+> Note: Merge unavailable — PR state is `<merge_state>`. Common reasons: PR is a draft (`DRAFT`), requires reviewer approval (`BLOCKED`), has merge conflicts (`DIRTY`), base branch moved (`BEHIND`), or checks failing (`UNSTABLE`).
