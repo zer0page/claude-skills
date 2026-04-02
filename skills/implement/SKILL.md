@@ -96,7 +96,7 @@ _Skipped with `--quick`._
 
 ## Key Principles
 
-- All non-skipped phases are mandatory and sequential. Never skip or reorder (see `--quick` for audit exceptions).
+- All phases are mandatory and sequential except phases 4 and 6, which are skipped with `--quick`. Never reorder.
 - Never commit directly to main.
 - Always gate on user approval before implementation and merge.
 - Only modify files identified in the plan.
