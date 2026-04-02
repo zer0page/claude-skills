@@ -59,12 +59,7 @@ if [ -n "$REVIEW_BOT" ]; then
   POLL_ARGS+=(--review-bot "$REVIEW_BOT")
 fi
 
-# --- Validate and request review bot ---
-if [ -n "$REVIEW_BOT" ]; then
-  case "$REVIEW_BOT" in
-    *'"'*|*'\\'*) echo '{"error":"invalid review-bot format"}'; exit 0 ;;
-  esac
-fi
+# --- Request review bot (validation happens in ci-poll.sh) ---
 if [ -n "$REVIEW_BOT" ]; then
   for attempt in 1 2 3; do
     if gh api "repos/$OWNER/$NAME/pulls/$PR/requested_reviewers" \
