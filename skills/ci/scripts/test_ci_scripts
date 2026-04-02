@@ -112,11 +112,10 @@ create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123)
 assert_json "$result" '.sha_match' 'true' "sha_match is true"
-assert_json "$result" '.check_counts.total' '2' "total checks = 2"
-assert_json "$result" '.check_counts.pending' '0' "pending = 0"
-assert_json "$result" '.check_counts.failed' '0' "failed = 0"
+assert_json "$result" '.checks | length' '2' "2 checks"
+assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '0' "0 pending"
+assert_json "$result" '[.checks[] | select(.state == "SUCCESS")] | length' '2' "2 passed"
 assert_json "$result" '.merge_state' 'CLEAN' "merge_state is CLEAN"
-assert_json "$result" '.failed_checks | length' '0' "no failed checks"
 
 echo "--- ci-poll.sh: SHA mismatch ---"
 result=$(run_poll --pr 1 --repo owner/name --sha wrong_sha)
@@ -136,10 +135,9 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123)
-assert_json "$result" '.check_counts.failed' '2' "2 failed checks"
-assert_json "$result" '.failed_checks | length' '2' "2 entries in failed_checks"
-assert_json "$result" '.failed_checks[0].type' 'StatusContext' "first failure is StatusContext"
-assert_json "$result" '.failed_checks[0].state' 'FAILURE' "raw state is FAILURE"
+assert_json "$result" '[.checks[] | select(.state == "FAILURE" or .state == "ERROR")] | length' '2' "2 non-success checks"
+assert_json "$result" '[.checks[] | select(.state == "FAILURE")][0].type' 'StatusContext' "first failure is StatusContext"
+assert_json "$result" '[.checks[] | select(.state == "FAILURE")][0].state' 'FAILURE' "raw state is FAILURE"
 assert_json "$result" '.merge_state' 'BLOCKED' "merge_state is BLOCKED"
 
 echo "--- ci-poll.sh: pending checks ---"
@@ -155,8 +153,8 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123)
-assert_json "$result" '.check_counts.pending' '2' "2 pending checks"
-assert_json "$result" '.check_counts.failed' '0' "0 failed (still pending)"
+assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '2' "2 pending checks"
+assert_json "$result" '[.checks[] | select(.resolved == true)] | length' '0' "0 resolved (still pending)"
 
 echo "--- ci-poll.sh: review bot with comments (raw state) ---"
 RESP="$TMPDIR_BASE/t5"
@@ -225,8 +223,8 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_loop --pr 1 --repo owner/name --sha abc123 --timeout 15)
-assert_json "$result" '.check_counts.failed' '0' "loop: 0 failed"
-assert_json "$result" '.check_counts.pending' '0' "loop: 0 pending"
+assert_json "$result" '[.checks[] | select(.state == "SUCCESS")] | length' '1' "loop: 1 passed"
+assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '0' "loop: 0 pending"
 assert_json "$result" '.timed_out' 'false' "loop: not timed out"
 assert_json "$result" '.ci_logs' '' "loop: no ci_logs"
 
@@ -244,7 +242,7 @@ echo "Error: tests failed on line 42" > "$RESP/run_logs"
 create_mock_gh "$RESP"
 
 result=$(run_loop --pr 1 --repo owner/name --sha abc123 --timeout 15)
-assert_json "$result" '.check_counts.failed' '1' "loop: 1 failed check"
+assert_json "$result" '[.checks[] | select(.state == "FAILURE")] | length' '1' "loop: 1 failed check"
 ci_logs=$(echo "$result" | jq -r '.ci_logs')
 if echo "$ci_logs" | grep -q "Run 12345"; then
   pass "loop: ci_logs contains run ID"
