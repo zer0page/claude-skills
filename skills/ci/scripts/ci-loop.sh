@@ -17,8 +17,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 POLL_SCRIPT="$SCRIPT_DIR/ci-poll.sh"
 
 if [ ! -f "$POLL_SCRIPT" ]; then
-  echo '{"error":"ci-poll.sh not found at '"$SCRIPT_DIR"'"}' >&2
-  exit 1
+  echo '{"error":"ci-poll.sh not found at '"$SCRIPT_DIR"'"}'
+  exit 0
 fi
 
 # --- Argument parsing ---

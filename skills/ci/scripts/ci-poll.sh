@@ -123,8 +123,8 @@ fi
 # --- 5. Merge state (from initial pr_data fetch — no extra API call) ---
 merge_state=$(echo "$pr_data" | jq -r '.mergeStateStatus // "UNKNOWN"')
 
-# --- 6. Output: raw data, no computed verdicts ---
-jq -n \
+# --- 6. Output ---
+jq -nc \
   --arg head_sha "$head_sha" \
   --argjson sha_match true \
   --argjson checks "$checks" \
