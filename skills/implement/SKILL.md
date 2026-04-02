@@ -7,7 +7,7 @@ description: Full development workflow — brainstorm, plan, audit, simplify, bu
 
 End-to-end workflow for building features and updates. **Every phase is mandatory and sequential — do not skip or reorder phases.** The only exception is `--quick`, which skips audit phases.
 
-`--quick` skips Phase 4 (audit plan) and Phase 6 (audit diff). All other phases are always required.
+`--quick` skips Phase 4 (pre-implementation audit) and Phase 6 (audit diff). All other phases are required unless explicitly marked as skippable.
 
 **Auto-quick:** If `--quick` was not specified but the change appears trivial (single-file fix, small bug fix, minor update), use `AskUserQuestion` to ask whether to run with `--quick`. `--quick` only skips audits — brainstorming still runs.
 
@@ -50,15 +50,16 @@ Name the worktree with a slug derived from the feature description (lowercase, h
 
 ## Phase 3: Gate — user approves plan
 
-Use `ExitPlanMode` to present the plan and request approval. This exits plan mode and gates on user approval. Do not proceed without explicit approval.
+1. Use `ExitPlanMode` to exit plan mode and present the current implementation plan. Note: Phase 4 may revise the plan based on audit findings — Phase 4's approval gate covers the final version.
+2. Use `AskUserQuestion` to request explicit user approval to proceed. Do not proceed without explicit approval.
 
-## Phase 4: Audit plan
+## Phase 4: Pre-implementation audit
 
 _Skipped with `--quick`._
 
 1. You are now out of plan mode (Phase 3's `ExitPlanMode` handled the exit). `Agent` is available.
-2. Run `/audit --no-handoff` on the planned changes (the files and scope identified in the plan).
-3. Fix findings immediately — revise the plan.
+2. Run `/audit --no-handoff <path>` where `<path>` is the primary target directory or file from the plan. If the plan spans multiple directories, use the narrowest common parent. This audits the existing code that will be modified, with the plan as context, to catch issues before implementation begins.
+3. Fix findings immediately — revise the plan if the audit reveals problems with the planned approach.
 4. Use `AskUserQuestion` to present a summary of audit findings, what changed, and request approval before implementing. Do not proceed without explicit approval.
 
 ## Phase 5: Implement
