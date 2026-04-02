@@ -63,12 +63,14 @@ if [ -n "$REVIEW_BOT" ]; then
 fi
 
 # --- Polling loop: return on first actionable event ---
+# Review windows repeat every 10 min while CI is pending.
+# When CI resolves, one final review check before returning.
 poll_result=""
-review_elapsed=0
-review_resolved=true  # default: no bot configured = resolved
+window_elapsed=0
 review_bot_timeout=false
-
-[ -n "$REVIEW_BOT" ] && review_resolved=false
+ci_resolved=false
+has_bot="false"
+[ -n "$REVIEW_BOT" ] && has_bot="true"
 
 while true; do
   poll_result=$(bash "$POLL_SCRIPT" "${POLL_ARGS[@]}" 2>/dev/null) || poll_result='{"error":"ci-poll.sh failed"}'
@@ -79,25 +81,32 @@ while true; do
   [ -n "$has_error" ] && break
   [ "$sha_match" = "false" ] && break
 
-  # --- Reviews (only during 10-min window) ---
-  if ! $review_resolved; then
-    review_state=$(echo "$poll_result" | jq -r '.review_state // empty')
-    review_comment_count=$(echo "$poll_result" | jq -r '.review_comment_count // 0')
-    human_count=$(echo "$poll_result" | jq '[.human_comment_ids // [] | length] | .[0]')
+  # --- Check for actionable reviews ---
+  review_state=$(echo "$poll_result" | jq -r '.review_state // empty')
+  review_comment_count=$(echo "$poll_result" | jq -r '.review_comment_count // 0')
+  human_count=$(echo "$poll_result" | jq '[.human_comment_ids // [] | length] | .[0]')
+  has_comments=false
+  { [ "$review_comment_count" -gt 0 ] || [ "$human_count" -gt 0 ]; } && has_comments=true
 
-    if [ -n "$review_state" ]; then
-      review_resolved=true
-      # Bot responded with comments → return immediately (actionable)
-      if [ "$review_comment_count" -gt 0 ] || [ "$human_count" -gt 0 ]; then
-        break
-      fi
-    elif [ $review_elapsed -ge 600 ]; then
-      # 10-min timeout — re-request bot, flag, treat as resolved
-      review_resolved=true
+  # Bot responded with comments → return batch immediately
+  if [ -n "$review_state" ] && $has_comments; then
+    break
+  fi
+
+  # 10-min window expired
+  if [ $window_elapsed -ge 600 ]; then
+    # Human comments accumulated → return batch
+    if $has_comments; then
+      break
+    fi
+    # Bot never responded → re-request, flag timeout
+    if [ "$has_bot" = "true" ] && [ -z "$review_state" ]; then
       review_bot_timeout=true
       gh api "repos/$OWNER/$NAME/pulls/$PR/requested_reviewers" \
         -X POST -f "reviewers[]=$REVIEW_BOT" >/dev/null 2>&1 || true
     fi
+    # Reset window — keep checking for human comments while CI runs
+    window_elapsed=0
   fi
 
   # --- CI ---
@@ -106,21 +115,29 @@ while true; do
     check_pending=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == false)] | length')
 
     if [ "$check_pending" -eq 0 ]; then
-      # All checks resolved
+      ci_resolved=true
       non_success=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == true and .state != "SUCCESS" and .state != "NEUTRAL")] | length')
 
       if [ "$non_success" -gt 0 ]; then
         break  # CI failure — return
       fi
 
-      if $review_resolved; then
-        break  # Done — CI clean + reviews clean
+      # CI clean — final review check
+      if $has_comments; then
+        break  # Comments to address before completing
       fi
+
+      # If we reach here: CI clean + no comments (filtered above).
+      # Done if no bot configured or bot already reviewed clean.
+      if [ "$has_bot" = "false" ] || [ -n "$review_state" ]; then
+        break
+      fi
+      # CI clean but bot hasn't reviewed yet — keep waiting (up to next window expiry)
     fi
   fi
 
   sleep 10
-  review_elapsed=$((review_elapsed + 10))
+  window_elapsed=$((window_elapsed + 10))
 done
 
 # --- Fetch CI failure logs ---
