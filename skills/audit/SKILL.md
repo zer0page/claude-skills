@@ -30,3 +30,7 @@ Scope to `git diff [base]...HEAD`. Reviewers focus on regressions, missed edge c
 ```
 
 Table first. Details on request.
+
+## Handoff
+
+After presenting the aggregated table, use `AskUserQuestion` to confirm findings are understood and the caller can proceed.

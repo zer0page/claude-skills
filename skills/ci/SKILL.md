@@ -68,14 +68,12 @@ if [ -z "$review_state" ]; then
     -X POST -f "reviewers[]=$REVIEW_BOT"
 fi
 
-# Poll every 10s for first 3 min, then every 30s up to 10 min total (18×10s + 14×30s = 600s)
-for i in $(seq 1 33); do
+# Poll every 10s, up to 10 minutes (60 × 10s = 600s)
+for i in $(seq 1 60); do
   review_state=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
     --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .state // empty")
   if [ -n "$review_state" ]; then break; fi
-  if [ $i -lt 33 ]; then
-    if [ $i -le 18 ]; then sleep 10; else sleep 30; fi
-  fi
+  sleep 10
 done
 ```
 If no review after 10 minutes, proceed without it.
