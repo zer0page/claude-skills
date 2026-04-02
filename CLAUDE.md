@@ -4,12 +4,16 @@ Before committing, run any `test_*` scripts found in the changed skill's directo
 
 ## SKILL.md style
 
-- Concise, imperative voice. Lead with action, not explanation.
-- Numbered steps for sequential operations. Bullet lists for options/rules.
-- Minimal prose — if it can be a code block or one-liner, do that.
-- No "you should" or "consider" — just state what to do.
-- Reference scripts by `{{SKILL_DIR}}/scripts/<name>` path.
+SKILL.md files should follow this structure:
+
+1. **Purpose** — What this skill does. What it prevents (anti-patterns). Constraints.
+2. **Operating Mode** — Persona or mindset. What NOT to do.
+3. **The Process** — Numbered steps with brief bullets. No inline bash blocks — use scripts or one-line descriptions.
+4. **Exit Criteria** — When the skill is done. Hard stop conditions.
+5. **Key Principles** — Behavioral guardrails. Non-negotiable rules.
+
+Reference scripts by `{{SKILL_DIR}}/scripts/<name>` path.
 
 ## Scripts
 
-Follow the Claude Code skills spec: use `{{SKILL_DIR}}` to reference the skill directory (expands at runtime), place scripts in a `scripts/` subdirectory, and register them in `allowed-tools` frontmatter if needed. Scripts may normalize raw API data (field mapping across different response types) only if it reduces token count without losing context — otherwise return raw data. Scripts must not return aggregated verdicts (pass/fail status, summary counts) — let the LLM reason about the data. Internal computations for control flow (loop termination, log filtering) are fine.
+Follow the Claude Code skills spec: use `{{SKILL_DIR}}` to reference the skill directory (expands at runtime), place scripts in a `scripts/` subdirectory, and register them in `allowed-tools` frontmatter if needed. Scripts may normalize raw API data (field mapping) only if it reduces token count without losing context — otherwise return raw data. Scripts must not return aggregated verdicts — let the LLM reason about the data. Internal computations for control flow (loop termination, log filtering) are fine.
