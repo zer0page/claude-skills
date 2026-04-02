@@ -68,7 +68,6 @@ fi
 poll_result=""
 window_elapsed=0
 review_bot_timeout=false
-ci_resolved=false
 has_bot="false"
 [ -n "$REVIEW_BOT" ] && has_bot="true"
 
@@ -87,6 +86,11 @@ while true; do
   human_count=$(echo "$poll_result" | jq '[.human_comment_ids // [] | length] | .[0]')
   has_comments=false
   { [ "$review_comment_count" -gt 0 ] || [ "$human_count" -gt 0 ]; } && has_comments=true
+
+  # Bot responded → clear timeout flag (bot is alive)
+  if [ -n "$review_state" ]; then
+    review_bot_timeout=false
+  fi
 
   # Bot responded with comments → return batch immediately
   if [ -n "$review_state" ] && $has_comments; then
@@ -115,7 +119,6 @@ while true; do
     check_pending=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == false)] | length')
 
     if [ "$check_pending" -eq 0 ]; then
-      ci_resolved=true
       non_success=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == true and .state != "SUCCESS" and .state != "NEUTRAL")] | length')
 
       if [ "$non_success" -gt 0 ]; then
