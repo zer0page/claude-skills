@@ -30,7 +30,7 @@ Name the worktree with a slug derived from the feature description (lowercase, h
 ## Phase 2: Plan
 
 1. Enter a worktree with `EnterWorktree`: if a description was provided, use its slugified form as the name; otherwise let `EnterWorktree` generate one. This creates a new branch from HEAD.
-2. If `git config user.name` is empty, copy identity from the parent repo's latest commit (`git log -1 --format='%an'` / `'%ae'`), verify non-empty, then set with `git config user.name` and `git config user.email`
+2. If `git config user.name` is empty, configure git identity: try the parent repo's config first (`git -C <parent> config user.name`), fall back to the latest commit (`git log -1 --format='%an'` / `'%ae'`), then set with `git config user.name` and `git config user.email`
 3. Enter plan mode
 4. Use the validated design from Phase 1 to write a concrete implementation plan
 5. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — fix any issues as part of the plan
@@ -87,8 +87,8 @@ _Skipped only with `--quick`._
 2. Ask the user to approve the merge
 3. On approval:
    - Squash merge with `gh pr merge --squash` (do not use `--delete-branch` — it tries to checkout main locally, which fails in worktrees)
-   - Delete the remote branch: `BRANCH=$(gh pr view --json headRefName --jq '.headRefName') && [ -n "$BRANCH" ] && git push origin --delete "$BRANCH"`
    - Verify merge completed: `gh pr view --json merged --jq .merged` (must be `true`)
+   - Delete the remote branch: `BRANCH=$(gh pr view --json headRefName --jq '.headRefName') && [ -n "$BRANCH" ] && git push origin --delete "$BRANCH"`
    - Exit the worktree with `ExitWorktree action: "remove", discard_changes: true` (safe — squash merge confirmed on main)
    - Switch to main and pull to sync the merge locally
 4. If not approved:
