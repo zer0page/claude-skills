@@ -56,9 +56,9 @@ Use `ExitPlanMode` to present the plan and request approval. This exits plan mod
 
 _Skipped with `--quick`._
 
-1. You are now out of plan mode (Phase 3's `ExitPlanMode` handled the exit). The Agent tool is available.
-2. Run `/audit --no-handoff` on the plan file.
-3. Fix findings immediately — revise the plan and update the plan file.
+1. You are now out of plan mode (Phase 3's `ExitPlanMode` handled the exit). `Agent` is available.
+2. Run `/audit --no-handoff` on the planned changes (the files and scope identified in the plan).
+3. Fix findings immediately — revise the plan.
 4. Use `AskUserQuestion` to present a summary of audit findings, what changed, and request approval before implementing. Do not proceed without explicit approval.
 
 ## Phase 5: Implement
