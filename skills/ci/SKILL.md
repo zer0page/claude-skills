@@ -46,18 +46,16 @@ result=$(bash "{{SKILL_DIR}}/scripts/ci-loop.sh" --pr "$PR" --repo "$REPO" --sha
 echo "$result"
 ```
 
-### 2. Act on result
+### 2. Interpret the result
 
-Read the `action` field from the JSON output:
+`ci-loop.sh` only returns once all checks are resolved and reviews are in — you will never see pending states. Read the JSON fields to decide what to do:
 
-- **`"done"`** → CI clean, reviews clean. **EXIT loop → proceed to Completion.**
-- **`"fix_reviews"`** → Review/human comments need fixing. Logs pre-fetched in `review_comments` and `human_comment_details`.
-- **`"fix_ci"`** → CI failed. Failure logs pre-fetched in `ci_logs`. StatusContext failures include URLs for `WebFetch`.
-- **`"fix_both"`** → Both need fixing. Fix reviews first (pushing restarts CI).
-- **`"stale"`** → Someone else pushed. Re-sync with `git pull`, recompute `LATEST_SHA`, restart attempt.
-- **`"error"`** → API failure. Wait 30s, retry.
-- **`"cancelled"`** → Report to user and **STOP**. Do not treat as success.
-- **`"timeout"`** → Polling timed out. Report to user and **STOP**.
+- **`sha_match == false`** → Someone else pushed. `git pull`, recompute `LATEST_SHA`, restart attempt.
+- **`error` field present** → API failure. Wait 30s, retry.
+- **`timed_out == true`** → Report to user and **STOP**.
+- **`check_counts.failed > 0`** → CI failures. Logs pre-fetched in `ci_logs`. Fix them.
+- **`review_comment_count > 0`** or **`human_comment_ids` non-empty** → Review comments to address. Details pre-fetched in `review_comments` and `human_comment_details`. Fix reviews first (pushing restarts CI).
+- **`check_counts.failed == 0`** and **no comments** → **EXIT loop → proceed to Completion.**
 
 ### 3. Fix issues
 

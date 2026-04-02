@@ -27,7 +27,6 @@ assert_json() {
 }
 
 # --- Create mock gh script ---
-# The mock reads a response file based on the command pattern.
 MOCK_DIR="$TMPDIR_BASE/mocks"
 MOCK_GH="$MOCK_DIR/gh"
 mkdir -p "$MOCK_DIR"
@@ -36,7 +35,6 @@ create_mock_gh() {
   local response_dir="$1"
   cat > "$MOCK_GH" << 'GHEOF'
 #!/usr/bin/env bash
-# Mock gh — returns canned responses, applies --jq filters
 RESPONSE_DIR="__RESPONSE_DIR__"
 
 # Extract --jq filter if present
@@ -91,8 +89,9 @@ run_loop() {
 }
 
 # ============================================================
-# Test 1: ci-poll.sh — all checks clean
+# ci-poll.sh tests
 # ============================================================
+
 echo "--- ci-poll.sh: all checks clean ---"
 RESP="$TMPDIR_BASE/t1"
 mkdir -p "$RESP"
@@ -106,23 +105,19 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123)
-assert_json "$result" '.ci_status' 'clean' "ci_status is clean"
-assert_json "$result" '.check_summary.total' '2' "total checks = 2"
-assert_json "$result" '.check_summary.passed' '2' "passed checks = 2"
-assert_json "$result" '.check_summary.failed' '0' "failed checks = 0"
+assert_json "$result" '.sha_match' 'true' "sha_match is true"
+assert_json "$result" '.check_counts.total' '2' "total checks = 2"
+assert_json "$result" '.check_counts.pending' '0' "pending = 0"
+assert_json "$result" '.check_counts.failed' '0' "failed = 0"
 assert_json "$result" '.merge_state' 'CLEAN' "merge_state is CLEAN"
+assert_json "$result" '.failed_checks | length' '0' "no failed checks"
 
-# ============================================================
-# Test 2: ci-poll.sh — SHA mismatch (stale)
-# ============================================================
 echo "--- ci-poll.sh: SHA mismatch ---"
 result=$(run_poll --pr 1 --repo owner/name --sha wrong_sha)
-assert_json "$result" '.ci_status' 'stale' "ci_status is stale on SHA mismatch"
+assert_json "$result" '.sha_match' 'false' "sha_match is false on mismatch"
+assert_json "$result" '.head_sha' 'abc123' "returns actual head_sha"
 
-# ============================================================
-# Test 3: ci-poll.sh — mixed failures (CheckRun + StatusContext)
-# ============================================================
-echo "--- ci-poll.sh: mixed failures ---"
+echo "--- ci-poll.sh: mixed failures (CheckRun + StatusContext) ---"
 RESP="$TMPDIR_BASE/t3"
 mkdir -p "$RESP"
 echo "abc123" > "$RESP/head_sha"
@@ -135,15 +130,12 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123)
-assert_json "$result" '.ci_status' 'failed' "ci_status is failed with StatusContext failures"
-assert_json "$result" '.check_summary.failed' '2' "2 failed checks"
+assert_json "$result" '.check_counts.failed' '2' "2 failed checks"
 assert_json "$result" '.failed_checks | length' '2' "2 entries in failed_checks"
 assert_json "$result" '.failed_checks[0].type' 'StatusContext' "first failure is StatusContext"
+assert_json "$result" '.failed_checks[0].state' 'FAILURE' "raw state is FAILURE"
 assert_json "$result" '.merge_state' 'BLOCKED' "merge_state is BLOCKED"
 
-# ============================================================
-# Test 4: ci-poll.sh — pending checks
-# ============================================================
 echo "--- ci-poll.sh: pending checks ---"
 RESP="$TMPDIR_BASE/t4"
 mkdir -p "$RESP"
@@ -157,13 +149,10 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123)
-assert_json "$result" '.ci_status' 'pending' "ci_status is pending"
-assert_json "$result" '.check_summary.pending' '2' "2 pending checks"
+assert_json "$result" '.check_counts.pending' '2' "2 pending checks"
+assert_json "$result" '.check_counts.failed' '0' "0 failed (still pending)"
 
-# ============================================================
-# Test 5: ci-poll.sh — review bot with comments
-# ============================================================
-echo "--- ci-poll.sh: review bot with comments ---"
+echo "--- ci-poll.sh: review bot with comments (raw state) ---"
 RESP="$TMPDIR_BASE/t5"
 mkdir -p "$RESP"
 echo "abc123" > "$RESP/head_sha"
@@ -177,13 +166,11 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123 --review-bot "bot[bot]")
-assert_json "$result" '.review_bot.status' 'failed' "review_bot status is failed when comments exist"
-assert_json "$result" '.review_bot.comment_count' '1' "review has 1 comment"
+assert_json "$result" '.review_state' 'COMMENTED' "raw review_state is COMMENTED"
+assert_json "$result" '.review_comment_count' '1' "review has 1 comment"
+assert_json "$result" '.review_id' '99' "review_id returned"
 
-# ============================================================
-# Test 6: ci-poll.sh — review bot clean (no comments)
-# ============================================================
-echo "--- ci-poll.sh: review bot clean ---"
+echo "--- ci-poll.sh: review bot approved (raw state) ---"
 RESP="$TMPDIR_BASE/t6"
 mkdir -p "$RESP"
 echo "abc123" > "$RESP/head_sha"
@@ -197,11 +184,9 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123 --review-bot "bot[bot]")
-assert_json "$result" '.review_bot.status' 'clean' "review_bot status is clean when approved"
+assert_json "$result" '.review_state' 'APPROVED' "raw review_state is APPROVED"
+assert_json "$result" '.review_comment_count' '0' "0 review comments"
 
-# ============================================================
-# Test 7: ci-poll.sh — no review bot (skipped)
-# ============================================================
 echo "--- ci-poll.sh: no review bot ---"
 RESP="$TMPDIR_BASE/t7"
 mkdir -p "$RESP"
@@ -214,12 +199,14 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_poll --pr 1 --repo owner/name --sha abc123)
-assert_json "$result" '.review_bot.status' 'skipped' "review_bot status is skipped when no bot configured"
+assert_json "$result" '.review_state' 'null' "review_state is null when no bot configured"
+assert_json "$result" '.review_id' 'null' "review_id is null"
 
 # ============================================================
-# Test 8: ci-loop.sh — clean result returns action "done"
+# ci-loop.sh tests
 # ============================================================
-echo "--- ci-loop.sh: clean → action done ---"
+
+echo "--- ci-loop.sh: clean result (no failures, no comments) ---"
 RESP="$TMPDIR_BASE/t8"
 mkdir -p "$RESP"
 echo "abc123" > "$RESP/head_sha"
@@ -232,13 +219,12 @@ echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
 result=$(run_loop --pr 1 --repo owner/name --sha abc123 --timeout 15)
-assert_json "$result" '.action' 'done' "action is done when clean"
-assert_json "$result" '.ci_status' 'clean' "ci_status is clean"
+assert_json "$result" '.check_counts.failed' '0' "loop: 0 failed"
+assert_json "$result" '.check_counts.pending' '0' "loop: 0 pending"
+assert_json "$result" '.timed_out' 'false' "loop: not timed out"
+assert_json "$result" '.ci_logs' '' "loop: no ci_logs"
 
-# ============================================================
-# Test 9: ci-loop.sh — failure returns action "fix_ci" with logs
-# ============================================================
-echo "--- ci-loop.sh: failure → action fix_ci ---"
+echo "--- ci-loop.sh: failure fetches logs ---"
 RESP="$TMPDIR_BASE/t9"
 mkdir -p "$RESP"
 echo "abc123" > "$RESP/head_sha"
@@ -252,14 +238,17 @@ echo "Error: tests failed on line 42" > "$RESP/run_logs"
 create_mock_gh "$RESP"
 
 result=$(run_loop --pr 1 --repo owner/name --sha abc123 --timeout 15)
-assert_json "$result" '.action' 'fix_ci' "action is fix_ci on failure"
-# ci_logs should contain something (the mock returns run logs)
+assert_json "$result" '.check_counts.failed' '1' "loop: 1 failed check"
 ci_logs=$(echo "$result" | jq -r '.ci_logs')
-if [ -n "$ci_logs" ] && [ "$ci_logs" != "" ]; then
-  pass "ci_logs is populated"
+if echo "$ci_logs" | grep -q "Run 12345"; then
+  pass "loop: ci_logs contains run ID"
 else
-  fail "ci_logs is empty"
+  fail "loop: ci_logs missing run ID (got: $ci_logs)"
 fi
+
+echo "--- ci-loop.sh: SHA mismatch exits immediately ---"
+result=$(run_loop --pr 1 --repo owner/name --sha wrong_sha --timeout 15)
+assert_json "$result" '.sha_match' 'false' "loop: exits on SHA mismatch"
 
 # ============================================================
 # Summary
