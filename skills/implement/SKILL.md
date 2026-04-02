@@ -16,8 +16,8 @@ End-to-end workflow for building features and updates. **Every phase is mandator
 All `/implement` runs use a worktree for isolation.
 
 - **Enter:** Phase 2, step 1 — before entering plan mode
-- **Active:** Phases 2–9 operate inside the worktree
-- **Exit:** Phase 9 — `remove` on merge, `keep` otherwise
+- **Active:** Phases 2–8, and Phase 9 until `ExitWorktree`
+- **Exit:** Phase 9 — `remove` on merge, `keep` otherwise. Switching to main happens after exit.
 
 Name the worktree with a slug derived from the feature description (lowercase, hyphens, max 30 chars, e.g. `fix-auth-timeout`). If no description is provided, omit the name and let `EnterWorktree` generate one. If `EnterWorktree` fails (name collision), append `-2`, `-3`, etc. and retry.
 
@@ -31,7 +31,7 @@ _Skipped only with `--quick`._
 
 ## Phase 2: Plan
 
-1. Enter a worktree with `EnterWorktree` using the slugified feature description as the name — this creates a new branch from HEAD
+1. Enter a worktree with `EnterWorktree`: if a description was provided, use its slugified form as the name; otherwise let `EnterWorktree` generate one. This creates a new branch from HEAD.
 2. Enter plan mode
 3. Use the validated design from Phase 1 to write a concrete implementation plan
 4. Validate all `skills/*/SKILL.md` files for clarity, completeness, and consistency — fix any issues as part of the plan
