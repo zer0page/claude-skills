@@ -20,7 +20,7 @@ ALLOWED_FILES=$(gh pr diff "$PR" --name-only)
 LATEST_SHA=$(git rev-parse HEAD)
 ```
 
-**Resolve review bot:** Read `CLAUDE.md` for a configured review bot (e.g. `review_bot: my-reviewer[bot]`). Default: `copilot-pull-request-reviewer[bot]`. If set to `none`, skip all review bot steps (2, and review portions of 3).
+**Resolve review bot:** Read `CLAUDE.md` for a configured review bot (e.g. `review_bot: my-reviewer[bot]`). Default: `copilot-pull-request-reviewer[bot]`. If set to `none`, skip all review bot steps (step 2 and review portions of step 3).
 
 ```bash
 REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
@@ -30,11 +30,12 @@ REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
 
 ## Loop (max N attempts, default 5)
 
-Each attempt, first recompute `LATEST_SHA=$(git rev-parse HEAD)` (it changes after each push).
+Recompute `LATEST_SHA=$(git rev-parse HEAD)` at the start of each attempt (it changes after each push).
 
 ### 1. Wait for CI
 
 ```bash
+LATEST_SHA=$(git rev-parse HEAD)
 result=$(gh run list --branch "$BRANCH" --limit 1 --json status,conclusion,databaseId,headSha --jq '.[0]')
 run_status=$(echo "$result" | jq -r '.status')
 run_conclusion=$(echo "$result" | jq -r '.conclusion')
@@ -42,16 +43,16 @@ run_id=$(echo "$result" | jq -r '.databaseId')
 run_sha=$(echo "$result" | jq -r '.headSha')
 ```
 
-Poll every 10s until `$run_status` is `completed`. Verify `$run_sha` matches `$LATEST_SHA` to ensure this run is for the current commit. Use `$run_id` for log retrieval.
+Poll every 10s until `$run_status` is `completed`. Verify `$run_sha` matches `$LATEST_SHA` to confirm the run is for the current commit. Use `$run_id` for log retrieval.
 
 Check `$run_conclusion`:
-- `"success"` → CI passed, proceed to step 2
-- `"failure"` → CI failed, skip to step 3 (read logs, fix)
-- Any other value (`cancelled`, `skipped`, etc.) → report the conclusion to the user and stop. Do not treat as success or attempt to fix — these require human intervention.
+- `"success"` → proceed to step 2
+- `"failure"` → skip to step 3 (read logs, fix)
+- Any other value (`cancelled`, `skipped`, etc.) → report to the user and stop. Do not treat as success or attempt to fix.
 
 ### 2. Wait for review bot
 
-If `$REVIEW_BOT` is `none`, skip this step.
+Skip this step if `$REVIEW_BOT` is `none`.
 
 Check for a submitted review from `$REVIEW_BOT` on the **latest commit**.
 
@@ -76,35 +77,35 @@ for i in $(seq 1 60); do
   if [ $i -lt 60 ]; then sleep 10; fi
 done
 ```
+
 If no review after 10 minutes, proceed without it.
 
 ### 3. Check results
 
-- **CI failed** (`$run_conclusion == "failure"`): read logs via `gh run view $run_id --log-failed`
-- **CI passed** (`$run_conclusion == "success"`) + review bot reviewed: check for comments on the **latest commit's review**:
+- **CI failed** (`$run_conclusion == "failure"`): read logs via `gh run view $run_id --log-failed`.
+- **CI passed** + review bot reviewed: check for comments on the **latest commit's review** (skip if no review arrived):
   ```bash
-  # Get latest review bot review ID for this commit (use --jq to avoid control char crashes)
   REVIEW_ID=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
-    --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.commit_id == \"$LATEST_SHA\")] | last | .id")
-  # Get that review's inline comments
-  gh api "repos/$OWNER/$NAME/pulls/$PR/reviews/$REVIEW_ID/comments" --jq '.[] | {id, path, body}'
+    --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .id")
+  if [ -n "$REVIEW_ID" ] && [ "$REVIEW_ID" != "null" ]; then
+    gh api "repos/$OWNER/$NAME/pulls/$PR/reviews/$REVIEW_ID/comments" --jq '.[] | {id, path, body}'
+  fi
   ```
-- **Also check for non-bot review comments** (human reviewers, other bots):
+- **Non-bot review comments** (human reviewers, other bots):
   ```bash
-  # Get PR review comments on the latest commit, not from the configured review bot
   gh api "repos/$OWNER/$NAME/pulls/$PR/comments" \
     --jq '[.[] | select(.user.login != "'"$REVIEW_BOT"'") | select(.commit_id == "'"$LATEST_SHA"'" or .original_commit_id == "'"$LATEST_SHA"'")] | .[] | {id, path, body, user: .user.login}'
   ```
-  Address these the same way as bot comments — fix if within scope, react +1, or stop and notify the user if the comment requires a design change.
+  Fix if within scope and react +1. Stop and notify the user if a comment requires a design change.
 
-### 4. If issues found
+### 4. Fix issues
 
-- Read the failure logs or review comments
-- Fix using industry best practices
-- **Only modify files in ALLOWED_FILES** — never touch unrelated code
-- **Minimize lines changed** per fix
-- **Do not deviate from design decisions** in the PR — if a comment requires an architectural change, stop and notify the user
-- **Do not increase scope** beyond what is necessary
+- Read the failure logs or review comments.
+- Fix using industry best practices.
+- **Only modify files in `$ALLOWED_FILES`** — never touch unrelated code.
+- **Minimize lines changed** per fix.
+- **Do not deviate from design decisions** in the PR — if a comment requires an architectural change, stop and notify the user.
+- **Do not increase scope.**
 - React +1 on addressed comments:
   ```bash
   gh api repos/$OWNER/$NAME/pulls/comments/$COMMENT_ID/reactions -f content="+1"
@@ -112,8 +113,8 @@ If no review after 10 minutes, proceed without it.
 
 ### 5. Commit and push
 
-- New commit each round (not amend) with descriptive message
-- Push to the PR branch
+- Create a new commit each round (not amend) with a descriptive message.
+- Push to the PR branch.
 - Re-request review bot (if configured):
   ```bash
   gh api repos/$OWNER/$NAME/pulls/$PR/requested_reviewers -X POST -f "reviewers[]=$REVIEW_BOT"
@@ -121,9 +122,9 @@ If no review after 10 minutes, proceed without it.
 
 ### 6. Repeat or stop
 
-- If `$run_conclusion == "success"` + no unaddressed comments → proceed to Completion
-- If not last attempt → loop back to step 1
-- If last attempt → still do steps 4+5 fully (fix, react +1, commit, push), just skip looping back to step 1. Report what was fixed and any remaining comments, then proceed to Completion.
+- `$run_conclusion == "success"` + no unaddressed comments → proceed to Completion.
+- Not last attempt → loop back to step 1.
+- Last attempt → complete steps 4–5 (fix, react +1, commit, push), then proceed to Completion. Report what was fixed and any remaining comments.
 
 ## Output
 
@@ -134,8 +135,8 @@ After each attempt, report:
 
 ## Completion
 
-When the loop finishes, use `AskUserQuestion` to present three options:
+Use `AskUserQuestion` to present three options:
 
-1. **Mark ready (Recommended)** — mark the PR as ready for review (remove draft status). Do not merge.
-2. **Clean up and reopen** — squash all commits on the branch into one, force-push, close the PR, and reopen a new PR with clean history.
-3. **Merge and close** — mark the PR ready, squash merge into the base branch, delete the remote branch, and switch to main locally.
+1. **Mark ready (Recommended)** — remove draft status. Do not merge.
+2. **Clean up and reopen** — squash all commits into one, force-push, close the PR, reopen with clean history.
+3. **Merge and close** — mark ready, squash merge into base branch, delete remote branch, switch to main locally.

@@ -8,85 +8,79 @@ origin: Adapted from sickn33/antigravity-awesome-skills (MIT)
 
 ## Purpose
 
-Turn raw ideas into **clear, validated designs and specifications**
-through structured dialogue **before any implementation begins**.
+Turn raw ideas into **clear, validated designs** through structured dialogue **before any implementation begins**.
 
-This skill exists to prevent:
-- premature implementation
-- hidden assumptions
-- misaligned solutions
-- fragile systems
+Prevents: premature implementation, hidden assumptions, misaligned solutions, fragile systems.
 
-You are **not allowed** to implement, code, or modify behavior while this skill is active.
-
----
+**No implementation, code, or behavior changes while this skill is active.**
 
 ## Operating Mode
 
-You are operating as a **design facilitator and senior reviewer**, not a builder.
+You are a **design facilitator and senior reviewer**, not a builder.
 
 - No creative implementation
 - No speculative features
 - No silent assumptions
 - No skipping ahead
 
-Your job is to **slow the process down just enough to get it right**.
-
----
+Slow the process down just enough to get it right.
 
 ## The Process
 
-### 1. Understand the Current Context (Mandatory First Step)
+### 1. Understand Current Context (Mandatory First Step)
 
 Before asking any questions:
-- Review the current project state (if available): files, documentation, plans, prior decisions
+- Review the current project state: files, documentation, plans, prior decisions
 - Identify what already exists vs. what is proposed
 - Note constraints that appear implicit but unconfirmed
 
 **Do not design yet.**
 
-### 2. Understanding the Idea (One Question at a Time)
+### 2. Understand the Idea (One Question at a Time)
 
-- Ask **one question per message**
-- Prefer **multiple-choice questions** when possible
+- Ask **one question per message** using `AskUserQuestion`
+- Prefer **multiple-choice options** when possible
 - Use open-ended questions only when necessary
 - Focus on: purpose, target users, constraints, success criteria, explicit non-goals
 
 ### 3. Non-Functional Requirements (Mandatory)
 
-Clarify or propose assumptions for: performance, scale, security/privacy, reliability/availability, maintenance/ownership.
+Use `AskUserQuestion` to clarify or propose assumptions for: performance, scale, security/privacy, reliability/availability, maintenance/ownership.
 
 ### 4. Understanding Lock (Hard Gate)
 
-Before any design, provide:
-- **Understanding Summary** (5-7 bullets): what, why, who, constraints, non-goals
+Present via `AskUserQuestion`:
+- **Understanding Summary** (5–7 bullets): what, why, who, constraints, non-goals
 - **Assumptions** list
 - **Open Questions** list
 
-Then ask for explicit confirmation. **Do NOT proceed until confirmed.**
+**Do NOT proceed until the user confirms.**
 
 ### 5. Explore Design Approaches
 
-Propose 2-3 viable approaches, lead with recommended option, explain trade-offs (complexity, extensibility, risk, maintenance). **YAGNI ruthlessly.**
+Propose 2–3 viable approaches. Lead with the recommended option. Explain trade-offs (complexity, extensibility, risk, maintenance). **YAGNI ruthlessly.**
 
 ### 6. Present the Design (Incrementally)
 
-Break into 200-300 word sections, ask for confirmation after each. Cover: architecture, components, data flow, error handling, edge cases, testing strategy.
+Break into 200–300 word sections. Use `AskUserQuestion` to confirm after each section. Cover: architecture, components, data flow, error handling, edge cases, testing strategy.
 
 ### 7. Decision Log (Mandatory)
 
 Maintain a running log: what was decided, alternatives considered, why this option was chosen.
 
----
-
 ## After the Design
 
-- Write final design to durable format (Markdown) including understanding summary, assumptions, decision log, final design.
-- Optional implementation handoff: create an explicit implementation plan only after documentation is complete.
+1. Write the final design to durable Markdown: understanding summary, assumptions, decision log, final design.
+2. Use `AskUserQuestion` to confirm the design is complete and hand off to the caller.
 
 ## Exit Criteria (Hard Stop)
 
-All must be true: Understanding Lock confirmed, at least one design accepted, major assumptions documented, key risks acknowledged, Decision Log complete.
+All must be true:
+- Understanding Lock confirmed
+- At least one design accepted
+- Major assumptions documented
+- Key risks acknowledged
+- Decision Log complete
 
 ## Key Principles (Non-Negotiable)
 
@@ -97,4 +91,3 @@ All must be true: Understanding Lock confirmed, at least one design accepted, ma
 - Prefer clarity over cleverness
 - Be willing to go back and clarify
 - **YAGNI ruthlessly**
-
