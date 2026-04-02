@@ -72,7 +72,7 @@ Use `merge_state` from last poll. `AskUserQuestion` with options:
 
 1. **Mark ready (Recommended)** — remove draft status. Do not merge.
 2. **Clean up and reopen** — squash, force-push, close, reopen.
-3. **Merge and close** _(only if `CLEAN`)_ — squash merge, delete branch, switch to main.
+3. **Merge and close** _(only if `CLEAN`)_ — `gh pr ready` if draft, `gh pr merge --squash` (no `--delete-branch` — fails in worktrees), verify `MERGED`, delete remote branch separately. Caller handles worktree exit.
 
 If not `CLEAN`: note the state (`DRAFT`, `BLOCKED`, `DIRTY`, `BEHIND`, `UNSTABLE`).
 
