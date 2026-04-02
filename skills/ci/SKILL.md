@@ -22,7 +22,7 @@ ALLOWED_FILES=$(gh pr diff "$PR" --name-only) || { echo "Error: gh pr diff faile
 
 Read `CLAUDE.md` for `review_bot`. Default: `copilot-pull-request-reviewer[bot]`. If `none`, omit `--review-bot`.
 
-**Scripts:** `{{SKILL_DIR}}/scripts/ci-poll.sh` (single-shot snapshot), `{{SKILL_DIR}}/scripts/ci-loop.sh` (blocking poll + log fetch). Use `ci-loop.sh` by default.
+**Scripts:** Use `{{SKILL_DIR}}/scripts/ci-loop.sh` (blocks until resolved, fetches logs and comments). For fine-grained control, use `{{SKILL_DIR}}/scripts/ci-poll.sh` (single-shot snapshot).
 
 ## Loop (max N attempts, default 5)
 
@@ -44,10 +44,10 @@ echo "$result"
 `ci-loop.sh` blocks until resolved. Read the JSON:
 
 - `sha_match == false` → `git pull`, recompute `LATEST_SHA`, restart attempt.
-- `error` present → wait 30s, retry.
+- `error` present → API/network failure. Retry in next attempt.
 - `timed_out == true` → report to user, **STOP**.
 - `check_counts.failed > 0` → fix CI (step 3).
-- `review_comment_count > 0` or `human_comment_ids` non-empty → fix comments first (step 3). Pushing restarts CI.
+- `review_comment_count > 0` or `human_comment_ids` non-empty → fix comments first (step 3). If both bot and human comments exist, address in one fix. Pushing restarts CI.
 - No failures, no comments → **EXIT → Completion**.
 
 ### 3. Fix
@@ -88,4 +88,4 @@ Use `merge_state` from last poll result. `AskUserQuestion` with applicable optio
 
 If not `CLEAN`:
 
-> Merge unavailable — PR state: `<merge_state>`. Reasons: draft (`DRAFT`), needs approval (`BLOCKED`), conflicts (`DIRTY`), behind (`BEHIND`), checks failing (`UNSTABLE`).
+> Merge unavailable — PR state: `<merge_state>`. States: `DRAFT` (draft), `BLOCKED` (approval/changes needed), `DIRTY` (conflicts), `BEHIND` (out of date), `UNSTABLE` (checks pending/failing).
