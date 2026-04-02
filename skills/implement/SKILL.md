@@ -45,9 +45,7 @@ _Skipped only with `--quick`._
 1. Run `/audit` on the plan file before asking the user to approve
 2. Fix findings immediately — revise the plan based on audit results
 3. Update the plan file
-4. **Proceed directly to Phase 4** — do not stop or wait after the audit
-
-If a finding requires a scope or design decision change, ask the user first. Otherwise fix and advance.
+4. Use `AskUserQuestion` to present a summary of findings and fixes, then proceed to Phase 4
 
 ## Phase 4: Gate — user approves execution
 
@@ -69,9 +67,7 @@ _Skipped only with `--quick`._
 2. Run `/audit --diff` on the changes
 3. Fix findings immediately and commit the fixes
 4. Verify `git status` is clean
-5. **Proceed directly to Phase 7** — do not stop or wait after the audit
-
-If a finding requires a scope or design decision change, ask the user first. Otherwise fix and advance.
+5. Use `AskUserQuestion` to present a summary of findings and fixes, then proceed to Phase 7
 
 ## Phase 7: Simplify
 
