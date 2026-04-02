@@ -35,6 +35,7 @@ Recompute `LATEST_SHA=$(git rev-parse HEAD)` at the start of each attempt (it ch
 ### 1. Wait for CI
 
 ```bash
+LATEST_SHA=$(git rev-parse HEAD)
 result=$(gh run list --branch "$BRANCH" --limit 1 --json status,conclusion,databaseId,headSha --jq '.[0]')
 run_status=$(echo "$result" | jq -r '.status')
 run_conclusion=$(echo "$result" | jq -r '.conclusion')
