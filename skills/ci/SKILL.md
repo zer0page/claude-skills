@@ -72,7 +72,11 @@ Use `merge_state` from last poll. `AskUserQuestion` with options:
 
 1. **Mark ready (Recommended)** — remove draft status. Do not merge.
 2. **Clean up and reopen** — squash, force-push, close, reopen.
-3. **Merge and close** _(only if `CLEAN`)_ — squash merge, delete branch, switch to main.
+3. **Merge and close** _(only if `CLEAN`)_:
+   1. `gh pr ready` if still draft.
+   2. `gh pr merge --squash` (no `--delete-branch` — fails in worktrees).
+   3. Verify `MERGED` via `gh pr view --json state` — if not, stop and report error.
+   4. Delete remote branch: `git push origin --delete BRANCH` (ignore if auto-deleted; assumes `origin` remote).
 
 If not `CLEAN`: note the state (`DRAFT`, `BLOCKED`, `DIRTY`, `BEHIND`, `UNSTABLE`).
 
