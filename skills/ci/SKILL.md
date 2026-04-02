@@ -68,12 +68,12 @@ if [ -z "$review_state" ]; then
     -X POST -f "reviewers[]=$REVIEW_BOT"
 fi
 
-# Poll every 30s, up to 10 minutes
-for i in $(seq 1 20); do
+# Poll every 10s for first 3 min, then every 30s up to 10 min total
+for i in $(seq 1 60); do
   review_state=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
     --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .state // empty")
   if [ -n "$review_state" ]; then break; fi
-  sleep 30
+  if [ $i -le 18 ]; then sleep 10; else sleep 30; fi
 done
 ```
 If no review after 10 minutes, proceed without it.
@@ -136,6 +136,6 @@ After each attempt, report:
 
 When the loop finishes, use `AskUserQuestion` to present three options:
 
-1. **Mark ready** — mark the PR as ready for review (remove draft status). Do not merge.
+1. **Mark ready (Recommended)** — mark the PR as ready for review (remove draft status). Do not merge.
 2. **Clean up and reopen** — squash all commits on the branch into one, force-push, close the PR, and reopen a new PR with clean history.
 3. **Merge and close** — mark the PR ready, squash merge into the base branch, delete the remote branch, and switch to main locally.
