@@ -90,7 +90,10 @@ while [ $elapsed -lt "$TIMEOUT" ]; do
   [ "$sha_match" = "false" ] && break
 
   # Check if all checks are resolved
-  check_pending=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == false)] | length')
+  check_pending=0
+  if [ "$(echo "$poll_result" | jq 'has("checks")')" = "true" ]; then
+    check_pending=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == false)] | length')
+  fi
 
   # Check if review bot has responded (review_state is non-null, or no bot configured)
   review_state=$(echo "$poll_result" | jq -r '.review_state // empty')
