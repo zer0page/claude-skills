@@ -33,7 +33,7 @@ Each fix + commit + push = one attempt.
 ```bash
 LATEST_SHA=$(git rev-parse HEAD)
 REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
-LOOP_ARGS=(--pr "$PR" --repo "$REPO" --sha "$LATEST_SHA" --timeout 600)
+LOOP_ARGS=(--pr "$PR" --repo "$REPO" --sha "$LATEST_SHA")
 [ -n "$REVIEW_BOT" ] && [ "$REVIEW_BOT" != "none" ] && LOOP_ARGS+=(--review-bot "$REVIEW_BOT")
 
 result=$(bash "{{SKILL_DIR}}/scripts/ci-loop.sh" "${LOOP_ARGS[@]}")
@@ -42,14 +42,14 @@ echo "$result"
 
 ### 2. Decide
 
-`ci-loop.sh` blocks until resolved. Read the JSON:
+`ci-loop.sh` returns on the first actionable event. No global timeout — CI can take as long as needed. Read the JSON:
 
 - `sha_match == false` → `git pull`, recompute `LATEST_SHA`, restart attempt.
 - `error` present → API/network failure. Retry in next attempt.
-- `timed_out == true` → report to user, **STOP**.
-- `review_comment_count > 0` or `human_comment_ids` non-empty → fix comments first (step 3). If both bot and human comments exist, address in one fix. Pushing restarts CI.
+- `review_bot_timeout == true` → mention to user ("bot hasn't responded, re-requested"). Not a blocker — continue.
+- `review_comments` or `human_comment_details` non-empty → fix comments (step 3). Pushing restarts CI + re-requests bot.
 - Any check in `checks` with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
-- All resolved checks `SUCCESS`/`NEUTRAL`, no comments → **EXIT → Completion**.
+- All checks `SUCCESS`/`NEUTRAL` + no comments → **EXIT → Completion**.
 
 ### 3. Fix
 
