@@ -68,12 +68,12 @@ if [ -z "$review_state" ]; then
     -X POST -f "reviewers[]=$REVIEW_BOT"
 fi
 
-# Poll every 10s for first 3 min, then every 30s up to 10 min total (18×10s + 14×30s = 600s)
-for i in $(seq 1 32); do
+# Poll every 10s for first 3 min, then every 30s up to 10 min total (18×10s + 15×30s = 630s max)
+for i in $(seq 1 33); do
   review_state=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
     --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$LATEST_SHA\")] | last | .state // empty")
   if [ -n "$review_state" ]; then break; fi
-  if [ $i -lt 32 ]; then
+  if [ $i -lt 33 ]; then
     if [ $i -le 18 ]; then sleep 10; else sleep 30; fi
   fi
 done
