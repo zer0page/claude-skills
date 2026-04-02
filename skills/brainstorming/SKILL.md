@@ -45,7 +45,7 @@ Before asking any questions:
 
 ### 3. Non-Functional Requirements (Mandatory)
 
-Clarify or propose assumptions for: performance, scale, security/privacy, reliability/availability, maintenance/ownership.
+Use `AskUserQuestion` to clarify or propose assumptions for: performance, scale, security/privacy, reliability/availability, maintenance/ownership.
 
 ### 4. Understanding Lock (Hard Gate)
 

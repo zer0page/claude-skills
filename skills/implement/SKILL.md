@@ -29,11 +29,10 @@ Name the worktree with a slug derived from the feature description (lowercase, h
 ## Phase 2: Plan
 
 1. Enter a worktree with `EnterWorktree`: use the slugified description as the name, or omit to auto-generate. This creates a new branch from HEAD.
-2. If `git config user.name` is empty, configure git identity:
+2. If `git config user.name` is empty, configure git identity from the latest commit:
    ```bash
-   # Try parent repo config, fall back to latest commit
-   git config user.name "$(git -C <parent> config user.name || git log -1 --format='%an')"
-   git config user.email "$(git -C <parent> config user.email || git log -1 --format='%ae')"
+   git config user.name "$(git log -1 --format='%an')"
+   git config user.email "$(git log -1 --format='%ae')"
    ```
 3. Enter plan mode.
 4. Write a concrete implementation plan based on the validated design from Phase 1.
@@ -51,11 +50,11 @@ _Skipped with `--quick`._
 
 ## Phase 4: Gate — user approves execution
 
-Present the final plan to the user. If Phase 3 ran, include a summary of audit findings and how they were addressed. Use `ExitPlanMode` to request approval. Do not proceed without explicit approval.
+Present the final plan to the user. If Phase 3 ran, include a summary of audit findings and how they were addressed. Use `ExitPlanMode` to request approval — this exits plan mode and gates on user approval. Do not proceed without explicit approval.
 
 ## Phase 5: Implement
 
-1. Exit plan mode.
+1. You are now out of plan mode (Phase 4's `ExitPlanMode` handled the exit).
 2. You are inside the worktree created in Phase 2 — the branch is already checked out. Never commit directly to main.
 3. Build the feature following the plan. Only modify files identified in the plan.
 4. Commit locally with a descriptive message — do not push yet.
@@ -75,13 +74,13 @@ _Skipped with `--quick`._
 1. Run `/simplify` on the changed code.
 2. Fix any reuse, quality, or efficiency issues found.
 3. Commit the fixes.
-4. Use `AskUserQuestion` to present a summary of simplify results and confirm before pushing to remote.
+4. Use `AskUserQuestion` to present a summary of simplify results and request approval before pushing to remote. Do not proceed without explicit approval.
 
 ## Phase 8: Ship
 
 1. Push and create a draft PR.
 2. Run `/ci --max 10` — fix failures and review comments until clean.
-3. `/ci` presents its own completion options. After the user selects an option, proceed to Phase 9.
+3. `/ci` presents completion options. If the user selects "Mark ready" or "Clean up and reopen", proceed to Phase 9. If the user selects "Merge and close", `/ci` handles the merge — skip Phase 9 and go directly to worktree cleanup: `ExitWorktree action: "remove", discard_changes: true`, then switch to main and pull.
 
 ## Phase 9: Gate — user approves merge
 
