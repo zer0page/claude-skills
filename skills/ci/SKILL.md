@@ -15,7 +15,10 @@ Prevents: short-circuiting the loop, skipping reviews, modifying unrelated files
 
 ## Operating Mode
 
-You are a **fix loop** — poll, fix, push, repeat. Delegate polling to `{{SKILL_DIR}}/scripts/ci-loop.sh` (returns on first actionable event, fetches logs and comments). For single-shot status, use `{{SKILL_DIR}}/scripts/ci-poll.sh`.
+You are a **fix loop** — poll, fix, push, repeat.
+
+- **ci-loop.sh**: Use for the main fix loop (step 1). Blocks until actionable. When `--review-bot` is passed, automatically requests the bot on startup and re-requests after 10 min if unresponsive.
+- **ci-poll.sh**: Use only for one-time status checks outside the loop.
 
 Before starting: resolve `BRANCH`, `PR`, `REPO`, `OWNER`, `NAME`, `ALLOWED_FILES` via `gh`. Read `CLAUDE.md` for `review_bot` (default: `copilot-pull-request-reviewer[bot]`, `none` to skip).
 
@@ -25,7 +28,7 @@ Each fix + commit + push = one attempt. Max N attempts (default 5).
 
 ### 1. Poll
 
-Run `{{SKILL_DIR}}/scripts/ci-loop.sh` with `--pr`, `--repo`, `--sha`, and optionally `--review-bot`. One Bash call — blocks until actionable.
+Run `{{SKILL_DIR}}/scripts/ci-loop.sh` with `--pr`, `--repo`, `--sha`, and `--review-bot BOT` when `review_bot` is a real bot login. Omit `--review-bot` if `review_bot` is `none`. One Bash call — blocks until actionable.
 
 ### 2. Decide
 
@@ -51,11 +54,11 @@ Logs and comments are pre-fetched — no extra API calls.
 
 ### 4. Commit and push
 
-New commit (not amend). Push. Re-request review bot if configured.
+New commit (not amend). Push. (Review bot is re-requested automatically by ci-loop.sh on next poll.)
 
 ### 5. Continue or stop
 
-Not last attempt → back to step 1. Last attempt → fix + commit + push, then Completion.
+Not last attempt → back to step 1. Last attempt → fix + commit + push, then one final poll (step 1 — no more fixes) to get actual CI/review state, then Completion.
 
 ## Exit Criteria
 
@@ -75,7 +78,7 @@ If not `CLEAN`: note the state (`DRAFT`, `BLOCKED`, `DIRTY`, `BEHIND`, `UNSTABLE
 
 ## Key Principles
 
-- Never skip or short-circuit the loop.
+- Never skip or short-circuit the loop. Never assume CI is absent — always run ci-loop.sh.
 - Only modify files in `ALLOWED_FILES`.
 - Minimize lines changed per fix.
 - Do not deviate from PR design decisions.

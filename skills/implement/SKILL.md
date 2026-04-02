@@ -13,8 +13,6 @@ Prevents: skipping phases, committing to main, implementing without a plan, ship
 
 `--quick` skips audit phases (4 and 6). All other phases are mandatory.
 
-**Auto-quick:** If the change appears trivial (single-file fix, small bug), ask whether to use `--quick`.
-
 ## Operating Mode
 
 You are an **orchestrator** — delegate to sub-skills, gate on user approval between phases. Never implement without a plan. Never commit to main directly.
@@ -24,6 +22,10 @@ All work happens in a worktree. Enter in Phase 2, exit in Phase 8 (if `/ci` merg
 Name the worktree from the description (lowercase, hyphens, max 30 chars). If collision, append `-2`, `-3`, etc.
 
 ## The Process
+
+### Phase 0: Quick check
+
+If the change appears trivial (single-file fix, small bug) and `--quick` was not already passed, `AskUserQuestion` whether to use `--quick` (skip audit phases 4 and 6). Gate on the answer before proceeding.
 
 ### Phase 1: Brainstorm
 
@@ -94,8 +96,9 @@ _Skipped with `--quick`._
 
 ## Key Principles
 
-- Every phase is mandatory and sequential. Never skip or reorder.
+- All phases are mandatory and sequential except phases 4 and 6, which are skipped with `--quick`. Never reorder.
 - Never commit directly to main.
 - Always gate on user approval before implementation and merge.
 - Only modify files identified in the plan.
 - Keep changes minimal and focused.
+- Never skip `/ci` — CI detection is handled by the scripts.
