@@ -202,18 +202,18 @@ Do not report on ticks where both statuses remain unchanged. After each fix, rep
 Check merge eligibility before presenting options:
 
 ```bash
-merge_state=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus')
+merge_state=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus') || merge_state="UNKNOWN"
 ```
 
-If `merge_state` is `CLEAN`, use `AskUserQuestion` to present three options:
+**Options always available:**
 
 1. **Mark ready (Recommended)** — remove draft status. Do not merge.
 2. **Clean up and reopen** — squash all commits into one, force-push, close the PR, reopen with clean history.
+
+**Conditional option — only if `merge_state` is `CLEAN`:**
+
 3. **Merge and close** — mark ready, squash merge into base branch, delete remote branch, switch to main locally.
 
-Otherwise, use `AskUserQuestion` to present two options with a note:
+If `merge_state` is not `CLEAN`, include a note explaining why:
 
-> Note: Merge unavailable — PR merge state: `<merge_state>` (may require reviewer approval or other branch protection requirements).
-
-1. **Mark ready (Recommended)** — remove draft status. Do not merge.
-2. **Clean up and reopen** — squash all commits into one, force-push, close the PR, reopen with clean history.
+> Note: Merge unavailable — PR state is `<merge_state>`. Common reasons: PR is still a draft, requires reviewer approval, or has unmet branch protection requirements.
