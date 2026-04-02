@@ -15,7 +15,10 @@ Prevents: short-circuiting the loop, skipping reviews, modifying unrelated files
 
 ## Operating Mode
 
-You are a **fix loop** — poll, fix, push, repeat. Delegate polling to `{{SKILL_DIR}}/scripts/ci-loop.sh` (returns on first actionable event, fetches logs and comments). For single-shot status, use `{{SKILL_DIR}}/scripts/ci-poll.sh`.
+You are a **fix loop** — poll, fix, push, repeat.
+
+- **ci-loop.sh**: Use for the main fix loop (step 1). Blocks until actionable. Automatically requests review bot on startup and re-requests after 10 min if unresponsive.
+- **ci-poll.sh**: Use only for one-time status checks outside the loop.
 
 Before starting: resolve `BRANCH`, `PR`, `REPO`, `OWNER`, `NAME`, `ALLOWED_FILES` via `gh`. Read `CLAUDE.md` for `review_bot` (default: `copilot-pull-request-reviewer[bot]`, `none` to skip).
 
@@ -25,7 +28,7 @@ Each fix + commit + push = one attempt. Max N attempts (default 5).
 
 ### 1. Poll
 
-Run `{{SKILL_DIR}}/scripts/ci-loop.sh` with `--pr`, `--repo`, `--sha`, and optionally `--review-bot`. One Bash call — blocks until actionable.
+Run `{{SKILL_DIR}}/scripts/ci-loop.sh` with `--pr`, `--repo`, `--sha`, and `--review-bot BOT` (always pass when `review_bot` is configured). One Bash call — blocks until actionable.
 
 ### 2. Decide
 
@@ -51,7 +54,7 @@ Logs and comments are pre-fetched — no extra API calls.
 
 ### 4. Commit and push
 
-New commit (not amend). Push. Re-request review bot if configured.
+New commit (not amend). Push. (Review bot is re-requested automatically by ci-loop.sh on next poll.)
 
 ### 5. Continue or stop
 
