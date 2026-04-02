@@ -17,8 +17,7 @@ REPO=$(gh repo view --json owner,name --jq '.owner.login + "/" + .name')
 if [ -z "$REPO" ]; then echo "Error: could not resolve repo"; exit 1; fi
 OWNER=${REPO%%/*}
 NAME=${REPO##*/}
-ALLOWED_FILES=$(gh pr diff "$PR" --name-only)
-if [ -z "$ALLOWED_FILES" ]; then echo "Error: could not get PR diff file list"; exit 1; fi
+ALLOWED_FILES=$(gh pr diff "$PR" --name-only) || { echo "Error: gh pr diff failed"; exit 1; }
 LATEST_SHA=$(git rev-parse HEAD)
 ```
 
@@ -31,6 +30,8 @@ REVIEW_BOT="${REVIEW_BOT:-copilot-pull-request-reviewer[bot]}"
 **Shell compatibility:** Do not use `status` as a variable name — it is read-only in zsh. Prefix CI-related variables (e.g., `run_status`, `run_conclusion`, `run_id`).
 
 ## Loop (max N attempts, default 5)
+
+Recompute `LATEST_SHA=$(git rev-parse HEAD)` at the start of each attempt (it changes after each push).
 
 **Error handling:** Every `gh` command in this loop must be validated. If a command exits non-zero or returns empty/null, retry after 10s. If it fails twice consecutively, report the error to the user and stop — do not treat it as success or continue the loop.
 
