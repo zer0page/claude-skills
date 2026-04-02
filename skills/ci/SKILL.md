@@ -24,13 +24,13 @@ ALLOWED_FILES=$(gh pr diff "$PR" --name-only) || { echo "Error: gh pr diff faile
 
 **Resolve review bot:** Read `CLAUDE.md` for a configured review bot (e.g. `review_bot: my-reviewer[bot]`). Default: `copilot-pull-request-reviewer[bot]`. If set to `none`, pass no `--review-bot` flag to the polling script.
 
-**Locate polling script:** `ci-poll.sh` is in the same directory as this SKILL.md. Resolve its path:
+**Locate polling script:** `ci-poll.sh` is in the `scripts/` subdirectory next to this SKILL.md. Resolve its path:
 
 ```bash
-POLL_SCRIPT="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/ci-poll.sh"
+POLL_SCRIPT="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/scripts/ci-poll.sh"
 ```
 
-If `ci-poll.sh` is not found at the resolved path, search common skill install locations: `~/.claude/skills/ci/ci-poll.sh`, then `.claude/skills/ci/ci-poll.sh` relative to the repo root.
+If `ci-poll.sh` is not found at the resolved path, search common skill install locations: `~/.claude/skills/ci/scripts/ci-poll.sh`, then `.claude/skills/ci/scripts/ci-poll.sh` relative to the repo root.
 
 ## Loop (max N attempts, default 5)
 
