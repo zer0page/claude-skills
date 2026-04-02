@@ -24,13 +24,7 @@ ALLOWED_FILES=$(gh pr diff "$PR" --name-only) || { echo "Error: gh pr diff faile
 
 **Resolve review bot:** Read `CLAUDE.md` for a configured review bot (e.g. `review_bot: my-reviewer[bot]`). Default: `copilot-pull-request-reviewer[bot]`. If set to `none`, pass no `--review-bot` flag to the polling script.
 
-**Locate polling script:** `ci-poll.sh` is in the `scripts/` subdirectory next to this SKILL.md. Resolve its path:
-
-```bash
-POLL_SCRIPT="$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/scripts/ci-poll.sh"
-```
-
-If `ci-poll.sh` is not found at the resolved path, search common skill install locations: `~/.claude/skills/ci/scripts/ci-poll.sh`, then `.claude/skills/ci/scripts/ci-poll.sh` relative to the repo root.
+**Polling script:** `{{SKILL_DIR}}/scripts/ci-poll.sh`
 
 ## Loop (max N attempts, default 5)
 
@@ -46,7 +40,7 @@ REVIEW_BOT_FLAG=""
 [ "$REVIEW_BOT" != "none" ] && REVIEW_BOT_FLAG="--review-bot $REVIEW_BOT"
 
 while true; do
-  result=$(bash "$POLL_SCRIPT" --pr "$PR" --repo "$REPO" --sha "$LATEST_SHA" $REVIEW_BOT_FLAG)
+  result=$(bash "{{SKILL_DIR}}/scripts/ci-poll.sh" --pr "$PR" --repo "$REPO" --sha "$LATEST_SHA" $REVIEW_BOT_FLAG)
   ci=$(echo "$result" | jq -r '.ci_status')
   rv=$(echo "$result" | jq -r '.review_bot.status')
   if [ "$ci" = "stale" ] || [ "$ci" = "error" ]; then break; fi
