@@ -148,22 +148,15 @@ human_id_json=$(echo "$poll_result" | jq -c '.human_comment_ids // []')
 human_ids=$(echo "$human_id_json" | jq 'length')
 
 if [ "$human_ids" -gt 0 ]; then
-  all_comments=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" 2>/dev/null || echo "[]")
-  human_comment_details=$(echo "$all_comments" | jq -c --argjson ids "$human_id_json" \
-    '[.[] | select(.id as $id | $ids | index($id)) | {id, path, body, user: .user.login}]')
+  human_comment_details=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" \
+    --jq "[.[] | select(.id as \$id | $human_id_json | index(\$id)) | {id, path, body, user: .user.login}]" 2>/dev/null || echo "[]")
 fi
 
 # --- Output: ci-poll.sh data + fetched details ---
-# Sanitize control characters (U+0000–U+001F) that crash standalone jq
-sanitize() { tr -d '\000-\010\013\014\016-\037'; }
-
-poll_clean=$(echo "$poll_result" | sanitize)
-review_clean=$(echo "$review_comments" | sanitize)
-human_clean=$(echo "$human_comment_details" | sanitize)
-
-echo "$poll_clean" | jq -c \
+# All JSON fragments are clean — ci-poll.sh uses jq -n, gh api uses --jq internally
+echo "$poll_result" | jq -c \
   --argjson timed_out "$timed_out" \
   --arg ci_logs "$ci_logs" \
-  --argjson review_comments "$review_clean" \
-  --argjson human_comment_details "$human_clean" \
+  --argjson review_comments "$review_comments" \
+  --argjson human_comment_details "$human_comment_details" \
   '. + {timed_out: $timed_out, ci_logs: $ci_logs, review_comments: $review_comments, human_comment_details: $human_comment_details}'
