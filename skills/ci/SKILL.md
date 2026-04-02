@@ -199,10 +199,10 @@ Do not report on ticks where both statuses remain unchanged. After each fix, rep
 
 ## Completion
 
-Check merge eligibility before presenting options:
+Check merge eligibility before presenting options. If `gh` fails or returns empty, retry with backoff (same pattern as the polling phase). Do not mask failures — report and stop if retries exhaust.
 
 ```bash
-merge_state=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus') || merge_state="UNKNOWN"
+merge_state=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus')
 ```
 
 Use `AskUserQuestion` to present the applicable options:
