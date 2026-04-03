@@ -107,8 +107,8 @@ if [ -f "$proj_settings/.claude/settings.json" ]; then
 else
   # jq might not be available — skip gracefully
   if ! command -v jq &>/dev/null; then
-    pass "settings.json — skipped (jq not available)"
-    pass "settings.json — skipped (jq not available)"
+    pass "settings.json — AGENT_TEAMS skipped (jq not available)"
+    pass "settings.json — REVIEW_BOT skipped (jq not available)"
   else
     fail "settings.json — file not created"
     fail "settings.json — file not created"
@@ -164,6 +164,21 @@ else
   else
     pass "settings.json malformed — skipped (jq not available)"
   fi
+fi
+
+# --- Test: settings.json with .env as non-object (array) ---
+proj_array="$TMPDIR_BASE/project_array"
+mkdir -p "$proj_array/.claude"
+echo '{"env":["old","array"]}' > "$proj_array/.claude/settings.json"
+HOME="$proj_array" "$INSTALL" --project "$proj_array" > /dev/null 2>&1
+if command -v jq &>/dev/null; then
+  if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' "$proj_array/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — recovered from non-object .env"
+  else
+    fail "settings.json — failed to recover from non-object .env"
+  fi
+else
+  pass "settings.json non-object — skipped (jq not available)"
 fi
 
 # --- Test: graceful when jq is not available ---

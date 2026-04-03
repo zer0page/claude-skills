@@ -54,7 +54,7 @@ Controls which bot `/ci` requests for automated PR reviews. Set in `~/.claude/se
 
 - Default (set by install): `copilot-pull-request-reviewer[bot]`
 - Custom bot: any bot login (e.g., `my-company-reviewer[bot]`)
-- `skip`: disable automated review requests (CI-only mode)
+- `skip`: disable automated review requests (CI-only mode; previously `none`)
 
 ### `/audit` — Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`)
 

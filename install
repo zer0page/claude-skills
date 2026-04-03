@@ -130,13 +130,23 @@ else
     exit 0
   fi
 
+  # Ensure .env is an object (reset if array/string/null)
+  if ! jq -e '.env | type == "object"' "$SETTINGS_FILE" >/dev/null 2>&1; then
+    echo "Warning: $SETTINGS_FILE .env is not an object — resetting .env" >&2
+  fi
+
   # Merge env vars: desired as base, existing values win on conflict
   TEMP=$(mktemp)
   trap 'rm -f "$TEMP"' EXIT
 
-  jq --argjson desired "$DESIRED" '
-    .env = ($desired.env * (.env // {}))
-  ' "$SETTINGS_FILE" > "$TEMP"
+  if ! jq --argjson desired "$DESIRED" '
+    .env = ($desired.env * (if (.env | type) == "object" then .env else {} end))
+  ' "$SETTINGS_FILE" > "$TEMP"; then
+    echo "Warning: settings.json merge failed — skipping configuration" >&2
+    rm -f "$TEMP"
+    trap - EXIT
+    exit 0
+  fi
 
   mv "$TEMP" "$SETTINGS_FILE"
   trap - EXIT
