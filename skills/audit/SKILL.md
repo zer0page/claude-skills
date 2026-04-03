@@ -34,8 +34,9 @@ Scan the target directory and parent directories (up to repo root) for `CLAUDE.m
 
 ### 3. Select personas
 
-Two core personas always run:
+Three core personas always run:
 - **Craft/quality** — structure, patterns, testing, naming
+- **Expert** — architecture, edge cases, performance, scalability
 - **Security adversary** — threats, validation, injection, auth
 
 Optional personas are added based on classification unless `--core` is passed:
@@ -43,12 +44,12 @@ Optional personas are added based on classification unless `--core` is passed:
 | Target type | Optional personas |
 |---|---|
 | Frontend/UI | Usability, Beginner |
-| API/Backend | Expert, Usability |
-| CLI/Scripts | Expert |
+| API/Backend | Usability |
+| CLI/Scripts | Beginner |
 | Config/Docs | Beginner |
-| Infra/DevOps | Expert |
+| Infra/DevOps | Usability |
 
-`--core`: run only the 2 core personas. Useful for lighter pre-implementation checks.
+`--core`: run only the 3 core personas. Useful for lighter pre-implementation checks.
 
 ### 4. Spawn personas as Explore agents
 
