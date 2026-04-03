@@ -73,7 +73,7 @@ Available optional personas:
 - **Scale** — performance bottlenecks, concurrency, data volume, growth
 - **Ops** — deployment, monitoring, operational cost, graceful degradation
 
-If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set, create an Agent Team. If leading an existing team, `TeamDelete` it first to clean up. If Agent Teams is unavailable (env var unset or team creation fails), fall back to Explore agents with the same persona instructions — Explore agents operate independently with no team lifecycle or cleanup.
+If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to `1`, create an Agent Team. If leading an existing team, `TeamDelete` it first to clean up. If Agent Teams is unavailable (env var unset or team creation fails), fall back to Explore agents with the same persona instructions — Explore agents operate independently with no team lifecycle or cleanup.
 
 ### 4. Non-Functional Requirements (Team-Enriched)
 
