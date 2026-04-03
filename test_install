@@ -156,7 +156,7 @@ proj_bad="$TMPDIR_BASE/project_bad"
 mkdir -p "$proj_bad/.claude"
 echo '{broken json' > "$proj_bad/.claude/settings.json"
 output=$(HOME="$proj_bad" "$INSTALL" --project "$proj_bad" 2>&1)
-if echo "$output" | grep -q "not valid JSON"; then
+if echo "$output" | grep -q "merge failed"; then
   pass "settings.json — warned on malformed JSON"
 else
   if command -v jq &>/dev/null; then

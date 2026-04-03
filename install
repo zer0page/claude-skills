@@ -128,21 +128,16 @@ if [ ! -f "$SETTINGS_FILE" ]; then
   echo "$DESIRED" | jq . > "$SETTINGS_FILE"
   echo "created $SETTINGS_FILE"
 else
-  # Validate existing file is valid JSON
-  if ! jq -e . "$SETTINGS_FILE" >/dev/null 2>&1; then
-    echo "Warning: $SETTINGS_FILE is not valid JSON — skipping configuration" >&2
-    exit 0
-  fi
-
   # Merge env vars: desired as base, existing values win on conflict
   # Non-object .env is silently coerced to {} by the jq filter
+  # Invalid JSON is caught by the jq failure path
   TEMP=$(mktemp)
   trap 'rm -f "$TEMP"' EXIT
 
   if ! jq --argjson desired "$DESIRED" '
     .env = ($desired.env * (if (.env | type) == "object" then .env else {} end))
-  ' "$SETTINGS_FILE" > "$TEMP"; then
-    echo "Warning: settings.json merge failed — ensure file is valid JSON or add env vars manually" >&2
+  ' "$SETTINGS_FILE" > "$TEMP" 2>/dev/null; then
+    echo "Warning: $SETTINGS_FILE merge failed (invalid JSON?) — skipping. Add env vars manually." >&2
     rm -f "$TEMP"
     trap - EXIT
     exit 0
