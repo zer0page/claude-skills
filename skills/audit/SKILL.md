@@ -26,7 +26,7 @@ You are a **read-only multi-perspective reviewer**, not an implementer.
 
 ### 1. Classify
 
-Determine the target's primary type: frontend/UI, API/backend, CLI/scripts, config/docs, infra/DevOps. If ambiguous, personas cover both interpretations.
+Determine the target's primary type: frontend/UI, API/backend, CLI/scripts, config/docs, infra/DevOps. If ambiguous, run the union of optional personas from all matched types.
 
 ### 2. Discover project guardrails
 
@@ -56,7 +56,7 @@ Launch selected personas in parallel. Each persona: 3–5 issues, file:line, sev
 
 ### 5. Aggregate as PM
 
-Dedupe by root cause — a finding flagged by any single persona is included. Use the highest severity across personas, never average. Output:
+Dedupe by root cause — a finding flagged by any single persona is included. Use the highest severity across personas, never average. "Flagged By" lists all contributing personas. Output:
 
 - Priority table
 - Guardrail violations (if any)

@@ -63,7 +63,7 @@ _Skipped with `--quick`._
 
 _Skipped with `--quick`._
 
-1. Run `/audit --diff --no-handoff` on committed changes.
+1. Run `/audit --diff --no-handoff` on committed changes (full personas — no `--core`).
 2. Fix findings and commit.
 3. Print one-line status summary.
 
