@@ -50,11 +50,12 @@ If the change appears trivial (single-file fix, small bug) and `--quick` was not
 
 _Skipped with `--quick`._
 
-1. `AskUserQuestion` with three options: **run audit**, **skip to Phase 5**, or **refine plan** (return to Phase 3). Never skip automatically.
-2. If refine: return to Phase 3 (re-enter plan mode, revise, re-approve).
-3. If run audit: `/audit --core --no-handoff [primary-target-directory]` from the plan.
-4. Fix findings — revise plan if needed. If plan changes, return to Phase 3 for re-approval.
-5. `AskUserQuestion` to present findings and request approval.
+1. `AskUserQuestion` with three options:
+   - **Run audit** — proceed with pre-implementation audit.
+   - **Skip audit** — proceed directly to Phase 5 (implementation).
+   - **Refine plan** — return to Phase 3 (re-enter plan mode, revise, re-approve, then repeat Phase 4).
+2. If run audit: `/audit --core --no-handoff [primary-target-directory]` from the plan.
+3. Fix findings. If plan scope changes, return to Phase 3 for re-approval.
 
 ### Phase 5: Implement
 
@@ -98,7 +99,7 @@ _Skipped with `--quick`._
 
 ## Key Principles
 
-- All phases are mandatory and sequential except phases 4 and 6, which are skipped with `--quick`. Never reorder.
+- All phases are mandatory and sequential. Phases 4 and 6 are skipped with `--quick`; Phase 4 may also be skipped or deferred by user choice at its gate. Never reorder. Never skip automatically.
 - Never commit directly to main.
 - Always gate on user approval before implementation and merge.
 - Only modify files identified in the plan.
