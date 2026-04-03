@@ -60,7 +60,7 @@ When two optional personas have overlapping concerns, they may share a single te
 
 ### 4. Spawn personas as Agent Team teammates
 
-Create an Agent Team. Spawn each selected persona as a teammate with its review scope and the read-only constraint. Each teammate: independently reviews the target, produces 3–5 issues with file:line, severity (quick-fix / medium / large), and concrete fix. Teammates are read-only — no edits, writes, or state changes.
+If leading an existing team, `TeamDelete` it first to clean up. Then create an Agent Team. Spawn each selected persona as a teammate with its review scope and the read-only constraint. Each teammate: independently reviews the target, produces 3–5 issues with file:line, severity (quick-fix / medium / large), and concrete fix. Teammates are read-only — no edits, writes, or state changes. Shut down all teammates and `TeamDelete` after aggregation.
 
 If Agent Teams is unavailable, fall back to Explore agents with the same persona instructions.
 
