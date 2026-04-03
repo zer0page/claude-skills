@@ -19,15 +19,17 @@ ACTION="${1:-}"
 notify() {
   local pane="$TMUX_PANE"
 
-  # Mark this pane as waiting.
+  # Skip if already waiting (avoids redundant tmux calls on repeated Stop events).
+  local cur
+  cur=$(tmux display-message -t "$pane" -p '#{@waiting}' 2>/dev/null) || exit 0
+  [ "$cur" != "1" ] || return 0
+
   tmux set-option -p -t "$pane" @waiting 1 2>/dev/null || exit 0
 
-  # Get the window id and name for this pane.
   local win name
   win=$(tmux display-message -t "$pane" -p '#{window_id}' 2>/dev/null) || exit 0
   name=$(tmux display-message -t "$pane" -p '#{window_name}' 2>/dev/null) || exit 0
 
-  # Prepend marker if not already present.
   if [[ "$name" != "${MARKER}"* ]]; then
     tmux rename-window -t "$win" -- "${MARKER} ${name}" 2>/dev/null || true
   fi
@@ -36,24 +38,25 @@ notify() {
 clear_notify() {
   local pane="$TMUX_PANE"
 
-  # Clear this pane's waiting flag.
+  # Skip if this pane wasn't waiting (avoids unnecessary tmux calls on every prompt).
+  local cur
+  cur=$(tmux display-message -t "$pane" -p '#{@waiting}' 2>/dev/null) || exit 0
+  [ "$cur" = "1" ] || return 0
+
   tmux set-option -p -t "$pane" @waiting 0 2>/dev/null || exit 0
 
-  # Get the window id and name.
   local win name
   win=$(tmux display-message -t "$pane" -p '#{window_id}' 2>/dev/null) || exit 0
   name=$(tmux display-message -t "$pane" -p '#{window_name}' 2>/dev/null) || exit 0
 
-  # Check if any pane in this window is still waiting (single tmux call).
+  # Check if any other pane in this window is still waiting.
   local waiting_flags
   waiting_flags=$(tmux list-panes -t "$win" -F '#{@waiting}' 2>/dev/null) || exit 0
 
   if echo "$waiting_flags" | grep -q '^1$'; then
-    # At least one pane still waiting — keep the marker.
     return 0
   fi
 
-  # No panes waiting — remove the marker.
   if [[ "$name" == "${MARKER} "* ]]; then
     tmux rename-window -t "$win" -- "${name#${MARKER} }" 2>/dev/null || true
   fi
