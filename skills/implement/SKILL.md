@@ -50,7 +50,7 @@ If the change appears trivial (single-file fix, small bug) and `--quick` was not
 
 _Skipped with `--quick`._
 
-1. Run `/audit --no-handoff` on the primary target directory from the plan.
+1. Run `/audit --core --no-handoff [primary-target-directory]` from the plan.
 2. Fix findings — revise plan if needed.
 3. `AskUserQuestion` to present findings and request approval.
 
@@ -63,7 +63,7 @@ _Skipped with `--quick`._
 
 _Skipped with `--quick`._
 
-1. Run `/audit --diff --no-handoff` on committed changes.
+1. Run `/audit --diff --no-handoff` on committed changes (full personas — no `--core`).
 2. Fix findings and commit.
 3. Print one-line status summary.
 
