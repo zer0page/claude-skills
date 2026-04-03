@@ -261,6 +261,119 @@ else
   pass "settings.json — jq available in restricted PATH (test skipped)"
 fi
 
+# --- Test: hook symlink installed ---
+echo "--- hook tests ---"
+proj_hooks="$TMPDIR_BASE/project_hooks"
+mkdir -p "$proj_hooks"
+HOME="$proj_hooks" "$INSTALL" --project "$proj_hooks" --agent-teams 1 --tmux-notify 1 > /dev/null 2>&1
+if [ -L "$proj_hooks/.claude/hooks/tmux-notify.sh" ]; then
+  pass "hooks — tmux-notify.sh symlinked"
+else
+  fail "hooks — tmux-notify.sh not found"
+fi
+
+# --- Test: hook symlink idempotent ---
+output=$(HOME="$proj_hooks" "$INSTALL" --project "$proj_hooks" --agent-teams 1 --tmux-notify 1 2>&1)
+if echo "$output" | grep -q "already linked"; then
+  pass "hooks — idempotent reinstall"
+else
+  fail "hooks — expected 'already linked'"
+fi
+
+# --- Test: hooks added to settings.json ---
+if command -v jq &>/dev/null; then
+  if jq -e '.hooks.Stop[0].hooks[0].command | test("tmux-notify.sh notify")' "$proj_hooks/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — Stop hook added"
+  else
+    fail "settings.json — Stop hook missing"
+  fi
+  if jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | test("tmux-notify.sh clear")' "$proj_hooks/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — UserPromptSubmit hook added"
+  else
+    fail "settings.json — UserPromptSubmit hook missing"
+  fi
+else
+  pass "settings.json hooks — skipped (jq not available)"
+  pass "settings.json hooks — skipped (jq not available)"
+fi
+
+# --- Test: hooks NOT added when disabled ---
+proj_nohooks="$TMPDIR_BASE/project_nohooks"
+mkdir -p "$proj_nohooks"
+HOME="$proj_nohooks" "$INSTALL" --project "$proj_nohooks" --agent-teams 1 --tmux-notify 0 > /dev/null 2>&1
+if command -v jq &>/dev/null; then
+  if jq -e '.hooks' "$proj_nohooks/.claude/settings.json" >/dev/null 2>&1; then
+    fail "settings.json — hooks should not be set when declined"
+  else
+    pass "settings.json — no hooks when tmux-notify declined"
+  fi
+else
+  pass "settings.json no hooks — skipped (jq not available)"
+fi
+
+# --- Test: disabling tmux-notify removes hooks ---
+proj_rmhooks="$TMPDIR_BASE/project_rmhooks"
+mkdir -p "$proj_rmhooks/.claude"
+cat > "$proj_rmhooks/.claude/settings.json" <<'HOOKJSON'
+{"env":{"REVIEW_BOT":"copilot-pull-request-reviewer[bot]"},"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"/home/user/.claude/hooks/tmux-notify.sh notify"}]}],"UserPromptSubmit":[{"matcher":"","hooks":[{"type":"command","command":"/home/user/.claude/hooks/tmux-notify.sh clear"}]}]}}
+HOOKJSON
+HOME="$proj_rmhooks" "$INSTALL" --project "$proj_rmhooks" --agent-teams 1 --tmux-notify 0 > /dev/null 2>&1
+if command -v jq &>/dev/null; then
+  if jq -e '.hooks' "$proj_rmhooks/.claude/settings.json" >/dev/null 2>&1; then
+    fail "settings.json — hooks should be removed after disable"
+  else
+    pass "settings.json — hooks removed after disable"
+  fi
+else
+  pass "settings.json hooks disable — skipped (jq not available)"
+fi
+
+# --- Test: user hooks preserved when adding tmux-notify ---
+proj_userhooks="$TMPDIR_BASE/project_userhooks"
+mkdir -p "$proj_userhooks/.claude"
+cat > "$proj_userhooks/.claude/settings.json" <<'USERJSON'
+{"env":{},"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"my-custom-hook.sh"}]}]}}
+USERJSON
+HOME="$proj_userhooks" "$INSTALL" --project "$proj_userhooks" --agent-teams 1 --tmux-notify 1 > /dev/null 2>&1
+if command -v jq &>/dev/null; then
+  if jq -e '.hooks.Stop | length == 2' "$proj_userhooks/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — user hooks preserved alongside tmux-notify"
+  else
+    fail "settings.json — user hooks lost or tmux-notify not added"
+  fi
+  if jq -e '.hooks.Stop[0].hooks[0].command == "my-custom-hook.sh"' "$proj_userhooks/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — user hook command unchanged"
+  else
+    fail "settings.json — user hook command modified"
+  fi
+else
+  pass "settings.json user hooks — skipped (jq not available)"
+  pass "settings.json user hooks — skipped (jq not available)"
+fi
+
+# --- Test: hook uninstall removes symlink ---
+proj_unhook="$TMPDIR_BASE/project_unhook"
+mkdir -p "$proj_unhook"
+HOME="$proj_unhook" "$INSTALL" --project "$proj_unhook" --agent-teams 1 --tmux-notify 1 > /dev/null 2>&1
+HOME="$proj_unhook" "$INSTALL" --project "$proj_unhook" --uninstall > /dev/null 2>&1
+if [ -L "$proj_unhook/.claude/hooks/tmux-notify.sh" ]; then
+  fail "hooks — symlink should be removed after uninstall"
+else
+  pass "hooks — symlink removed after uninstall"
+fi
+
+# --- Test: --tmux-notify rejects invalid values ---
+if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --tmux-notify 2 2>/dev/null; then
+  fail "--tmux-notify 2 — should have been rejected"
+else
+  pass "--tmux-notify 2 — rejected"
+fi
+if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --tmux-notify yes 2>/dev/null; then
+  fail "--tmux-notify yes — should have been rejected"
+else
+  pass "--tmux-notify yes — rejected"
+fi
+
 # --- Summary ---
 echo ""
 echo "$passed passed, $failed failed"
