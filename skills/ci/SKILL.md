@@ -40,7 +40,7 @@ Read the JSON result:
 - `review_comments` or `human_comment_details` non-empty → fix comments (step 3). Pushing restarts CI.
 - Any check with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
 - All clean + no comments, but `review_bot` is configured (not `none`) and `review_state` is null/empty → **not done**. Re-request the bot via `gh api repos/{owner}/{name}/pulls/{pr}/requested_reviewers -X POST -f "reviewers[]={BOT}"` and restart step 1 with `--review-bot`.
-- `checks` array is empty (no CI configured) → warn user "no CI checks detected on this PR", then proceed to Completion. Do not silently treat empty checks as passing.
+- `checks` array is empty after ci-loop.sh returns (no CI configured for this repo) → warn user "no CI checks detected on this PR", then proceed to Completion. Do not silently treat empty checks as passing.
 - All clean + no comments + review satisfied (`review_bot` is `none` OR `review_state` is non-null) → **done → Completion**.
 
 ### 3. Fix
