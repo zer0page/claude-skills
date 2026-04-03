@@ -9,9 +9,9 @@ description: Full development workflow — brainstorm, plan, audit, simplify, bu
 
 End-to-end workflow from idea to merged PR. Orchestrates `/brainstorming`, `/audit`, `/simplify`, and `/ci` into sequential phases.
 
-Prevents: skipping phases, committing to main, implementing without a plan, shipping without review.
+Prevents: silently skipping phases, committing to main, implementing without a plan, shipping without review.
 
-`--quick` skips audit phases (4 and 6). All other phases are mandatory.
+`--quick` skips audit phases (4 and 6). Without `--quick`, Phase 4 has a user gate (audit, skip, or refine).
 
 ## Operating Mode
 
@@ -50,9 +50,12 @@ If the change appears trivial (single-file fix, small bug) and `--quick` was not
 
 _Skipped with `--quick`._
 
-1. Run `/audit --core --no-handoff [primary-target-directory]` from the plan.
-2. Fix findings — revise plan if needed.
-3. `AskUserQuestion` to present findings and request approval.
+1. `AskUserQuestion` with three options:
+   - **Run audit** — proceed with pre-implementation audit.
+   - **Skip audit** — proceed directly to Phase 5 (implementation).
+   - **Refine plan** — return to Phase 2 step 3 (enter plan mode, revise plan, then Phase 3 re-approval and repeat Phase 4).
+2. If run audit: `/audit --core --no-handoff [primary-target-directory]` from the plan.
+3. If run audit: fix findings. If plan scope changes, return to Phase 3 for re-approval.
 
 ### Phase 5: Implement
 
@@ -96,7 +99,7 @@ _Skipped with `--quick`._
 
 ## Key Principles
 
-- All phases are mandatory and sequential except phases 4 and 6, which are skipped with `--quick`. Never reorder.
+- Follow phases in order. Never reorder. Skipping is allowed only via `--quick` (phases 4 and 6) or explicit user choice at the Phase 4 gate. Never skip automatically.
 - Never commit directly to main.
 - Always gate on user approval before implementation and merge.
 - Only modify files identified in the plan.
