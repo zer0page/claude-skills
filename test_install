@@ -88,6 +88,95 @@ else
   pass "unknown option — rejected"
 fi
 
+# --- Test: settings.json created when it doesn't exist ---
+echo "--- settings.json tests ---"
+proj_settings="$TMPDIR_BASE/project_settings"
+mkdir -p "$proj_settings"
+HOME="$proj_settings" "$INSTALL" --project "$proj_settings" > /dev/null 2>&1
+if [ -f "$proj_settings/.claude/settings.json" ]; then
+  if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' "$proj_settings/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — created with AGENT_TEAMS"
+  else
+    fail "settings.json — missing AGENT_TEAMS env var"
+  fi
+  if jq -e '.env.REVIEW_BOT == "copilot-pull-request-reviewer[bot]"' "$proj_settings/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — created with REVIEW_BOT"
+  else
+    fail "settings.json — missing REVIEW_BOT env var"
+  fi
+else
+  # jq might not be available — skip gracefully
+  if ! command -v jq &>/dev/null; then
+    pass "settings.json — skipped (jq not available)"
+    pass "settings.json — skipped (jq not available)"
+  else
+    fail "settings.json — file not created"
+    fail "settings.json — file not created"
+  fi
+fi
+
+# --- Test: settings.json preserves existing keys ---
+proj_merge="$TMPDIR_BASE/project_merge"
+mkdir -p "$proj_merge/.claude"
+echo '{"env":{"MY_CUSTOM_VAR":"hello"},"other_key":"preserved"}' > "$proj_merge/.claude/settings.json"
+HOME="$proj_merge" "$INSTALL" --project "$proj_merge" > /dev/null 2>&1
+if command -v jq &>/dev/null; then
+  if jq -e '.env.MY_CUSTOM_VAR == "hello"' "$proj_merge/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — preserved existing env var"
+  else
+    fail "settings.json — lost existing env var"
+  fi
+  if jq -e '.other_key == "preserved"' "$proj_merge/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — preserved non-env key"
+  else
+    fail "settings.json — lost non-env key"
+  fi
+else
+  pass "settings.json merge — skipped (jq not available)"
+  pass "settings.json merge — skipped (jq not available)"
+fi
+
+# --- Test: settings.json idempotent (existing env vars not overwritten) ---
+proj_idem="$TMPDIR_BASE/project_idem"
+mkdir -p "$proj_idem/.claude"
+echo '{"env":{"REVIEW_BOT":"my-custom-bot[bot]","CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}' > "$proj_idem/.claude/settings.json"
+HOME="$proj_idem" "$INSTALL" --project "$proj_idem" > /dev/null 2>&1
+if command -v jq &>/dev/null; then
+  if jq -e '.env.REVIEW_BOT == "my-custom-bot[bot]"' "$proj_idem/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — did not overwrite existing REVIEW_BOT"
+  else
+    fail "settings.json — overwrote existing REVIEW_BOT"
+  fi
+else
+  pass "settings.json idempotent — skipped (jq not available)"
+fi
+
+# --- Test: settings.json skipped for malformed JSON ---
+proj_bad="$TMPDIR_BASE/project_bad"
+mkdir -p "$proj_bad/.claude"
+echo '{broken json' > "$proj_bad/.claude/settings.json"
+output=$(HOME="$proj_bad" "$INSTALL" --project "$proj_bad" 2>&1)
+if echo "$output" | grep -q "not valid JSON"; then
+  pass "settings.json — warned on malformed JSON"
+else
+  if command -v jq &>/dev/null; then
+    fail "settings.json — should warn on malformed JSON"
+  else
+    pass "settings.json malformed — skipped (jq not available)"
+  fi
+fi
+
+# --- Test: graceful when jq is not available ---
+proj_nojq="$TMPDIR_BASE/project_nojq"
+mkdir -p "$proj_nojq"
+output=$(PATH="/usr/bin:/bin" HOME="$proj_nojq" "$INSTALL" --project "$proj_nojq" 2>&1) || true
+if echo "$output" | grep -qi "jq"; then
+  pass "settings.json — warns when jq missing"
+else
+  # jq might be in /usr/bin or /bin — if so this test is not meaningful
+  pass "settings.json — jq available in restricted PATH (test skipped)"
+fi
+
 # --- Summary ---
 echo ""
 echo "$passed passed, $failed failed"

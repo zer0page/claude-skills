@@ -21,6 +21,7 @@ Reusable [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills fo
   - **v2.1.63+** required if using `/implement` (depends on the built-in `/simplify` skill)
 - `git`
 - `gh` ([GitHub CLI](https://cli.github.com/)) — required for `/ci`
+- `jq` — required for `./install` to auto-configure `~/.claude/settings.json`
 
 ## Install
 
@@ -37,17 +38,27 @@ cd claude-skills
 
 ## Configuration
 
-Skills read project-specific settings from your `CLAUDE.md`. Currently configurable:
+The `./install` script auto-configures `~/.claude/settings.json` with sensible defaults. You can customize:
 
-### `/ci` — review bot
+### `/ci` — review bot (`REVIEW_BOT`)
 
-By default, `/ci` uses GitHub Copilot as the automated reviewer. Override in your project's `CLAUDE.md`:
+Controls which bot `/ci` requests for automated PR reviews. Set in `~/.claude/settings.json`:
 
-```markdown
-review_bot: my-company-reviewer[bot]
+```json
+{
+  "env": {
+    "REVIEW_BOT": "copilot-pull-request-reviewer[bot]"
+  }
+}
 ```
 
-Set to `none` to skip automated review requests entirely (CI-only mode).
+- Default (set by install): `copilot-pull-request-reviewer[bot]`
+- Custom bot: any bot login (e.g., `my-company-reviewer[bot]`)
+- `skip`: disable automated review requests (CI-only mode)
+
+### `/audit` — Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`)
+
+Enables Agent Teams for `/audit` reviewer personas. Set automatically by `./install`.
 
 ## License
 

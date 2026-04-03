@@ -1,6 +1,6 @@
 ---
 name: ci
-description: Watch CI + bot reviews on the current PR, fix failures, push, loop until green. Review bot is configurable via CLAUDE.md. Use when checking, monitoring, fixing, debugging, watching, polling, waiting for, or retrying CI builds, test failures, or review bot comments on a PR.
+description: Watch CI + bot reviews on the current PR, fix failures, push, loop until green. Review bot is configurable via settings.json. Use when checking, monitoring, fixing, debugging, watching, polling, waiting for, or retrying CI builds, test failures, or review bot comments on a PR.
 ---
 
 # /ci [--max N]
@@ -20,7 +20,7 @@ You are a **fix loop** — poll, fix, push, repeat.
 - **ci-loop.sh**: Use for the main fix loop (step 1). Blocks until actionable. When `--review-bot` is passed, automatically requests the bot on startup and re-requests after 10 min if unresponsive.
 - **ci-poll.sh**: Use only for one-time status checks outside the loop.
 
-Before starting: resolve `BRANCH`, `PR`, `REPO`, `OWNER`, `NAME`, `ALLOWED_FILES` via `gh`. Read `CLAUDE.md` for `review_bot` (default: `copilot-pull-request-reviewer[bot]`, `none` to skip). If any value cannot be resolved, stop and report the error — never conclude that CI is unnecessary.
+Before starting: resolve `BRANCH`, `PR`, `REPO`, `OWNER`, `NAME`, `ALLOWED_FILES` via `gh`. Read `$REVIEW_BOT` env var for the review bot login. Unset or empty defaults to `copilot-pull-request-reviewer[bot]`. Value `skip` disables the review bot entirely. If any value cannot be resolved, stop and report the error — never conclude that CI is unnecessary.
 
 ## The Process
 
@@ -28,7 +28,7 @@ Each fix + commit + push = one attempt. Max N attempts (default 5).
 
 ### 1. Poll
 
-Run `{{SKILL_DIR}}/scripts/ci-loop.sh` with `--pr`, `--repo`, `--sha SHA` (full 40-character hex), and `--review-bot BOT` when `review_bot` is a real bot login. Omit `--review-bot` if `review_bot` is `none`. One Bash call — blocks until actionable.
+Run `{{SKILL_DIR}}/scripts/ci-loop.sh` with `--pr`, `--repo`, `--sha SHA` (full 40-character hex), and `--review-bot BOT` when `$REVIEW_BOT` is not `skip`. Omit `--review-bot` if `$REVIEW_BOT` is `skip`. One Bash call — blocks until actionable.
 
 ### 2. Decide
 
@@ -39,9 +39,9 @@ Read the JSON result:
 - `review_bot_timeout == true` → mention to user, not a blocker.
 - `review_comments` or `human_comment_details` non-empty → fix comments (step 3). Pushing restarts CI.
 - Any check with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
-- All clean + no comments, but `review_bot` is configured (not `none`) and `review_state` is null/empty → **not done**. Re-request the bot via `gh api repos/{owner}/{name}/pulls/{pr}/requested_reviewers -X POST -f "reviewers[]={BOT}"` and restart step 1 with `--review-bot`.
+- All clean + no comments, but `$REVIEW_BOT` is not `skip` and `review_state` is null/empty → **not done**. Re-request the bot via `gh api repos/{owner}/{name}/pulls/{pr}/requested_reviewers -X POST -f "reviewers[]=$REVIEW_BOT"` and restart step 1 with `--review-bot`.
 - `checks` array is empty after ci-loop.sh returns (no CI configured for this repo) → warn user "no CI checks detected on this PR", then proceed to Completion. Do not silently treat empty checks as passing.
-- All clean + no comments + review satisfied (`review_bot` is `none` OR `review_state` is non-null) → **done → Completion**.
+- All clean + no comments + review satisfied (`$REVIEW_BOT` is `skip` OR `review_state` is non-null) → **done → Completion**.
 
 ### 3. Fix
 
@@ -71,7 +71,7 @@ Not last attempt → back to step 1. Last attempt → fix + commit + push, then 
 
 ## Completion
 
-**Pre-check**: If `review_bot` is configured (not `none`) and `review_state` is null or empty, the review gate is not satisfied. **STOP — do not proceed to `AskUserQuestion`.** Warn user that the review bot never responded and re-request the bot, then return to step 1 with `--review-bot`.
+**Pre-check**: If `$REVIEW_BOT` is not `skip` and `review_state` is null or empty, the review gate is not satisfied. **STOP — do not proceed to `AskUserQuestion`.** Warn user that the review bot never responded and re-request the bot, then return to step 1 with `--review-bot`.
 
 Use `merge_state` from last poll. `AskUserQuestion` with options:
 
