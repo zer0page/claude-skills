@@ -106,8 +106,8 @@ if ! command -v jq &>/dev/null; then
 Warning: jq not found — settings.json configuration skipped.
 
 To complete setup:
-  1. Install jq:  brew install jq
-  2. Re-run:      ./install        (safe to re-run; won't overwrite existing settings)
+  1. Install jq (brew install jq, apt-get install jq, etc.)
+  2. Re-run the same install command (safe to re-run; won't overwrite existing settings)
   Or manually create ~/.claude/settings.json:
 
   {
@@ -136,7 +136,6 @@ if [ ! -f "$SETTINGS_FILE" ]; then
   trap - EXIT
   echo "created $SETTINGS_FILE"
 else
-  # Preserve existing file permissions
   # Preserve existing file permissions (portable across macOS/Linux)
   if [ "$(uname)" = "Darwin" ]; then
     chmod "$(stat -f '%Lp' "$SETTINGS_FILE")" "$TEMP" 2>/dev/null || true
