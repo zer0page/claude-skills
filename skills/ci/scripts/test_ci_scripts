@@ -296,6 +296,22 @@ echo "--- ci-poll.sh: rejects invalid review-bot ---"
 result=$(run_poll --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 --review-bot 'bad"bot')
 assert_json "$result" '.error' 'invalid review-bot format' "rejects invalid review-bot"
 
+echo "--- ci-loop.sh: rejects non-numeric PR ---"
+result=$(run_loop --pr "abc" --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
+assert_json "$result" '.error' 'invalid PR format' "loop: rejects non-numeric PR"
+
+echo "--- ci-loop.sh: rejects malformed REPO ---"
+result=$(run_loop --pr 1 --repo "bad repo!" --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
+assert_json "$result" '.error' 'invalid REPO format' "loop: rejects malformed REPO"
+
+echo "--- ci-loop.sh: rejects short SHA ---"
+result=$(run_loop --pr 1 --repo owner/name --sha abc1234)
+assert_json "$result" '.error' 'invalid SHA format: expected full 40-character commit SHA' "loop: rejects short SHA"
+
+echo "--- ci-loop.sh: rejects invalid review-bot ---"
+result=$(run_loop --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 --review-bot 'bad"bot')
+assert_json "$result" '.error' 'invalid review-bot format' "loop: rejects invalid review-bot"
+
 # ============================================================
 # Summary
 # ============================================================
