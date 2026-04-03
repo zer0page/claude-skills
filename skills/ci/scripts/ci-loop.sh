@@ -84,8 +84,8 @@ while true; do
   review_state=$(echo "$poll_result" | jq -r '.review_state // empty')
   review_comment_count=$(echo "$poll_result" | jq -r '.review_comment_count // 0')
   human_count=$(echo "$poll_result" | jq '.human_comment_ids // [] | length')
-  has_comments=false
-  { [ "$review_comment_count" -gt 0 ] || [ "$human_count" -gt 0 ]; } && has_comments=true
+  has_comments="false"
+  { [ "$review_comment_count" -gt 0 ] || [ "$human_count" -gt 0 ]; } && has_comments="true"
 
   # Bot responded → clear timeout flag (bot is alive)
   if [ -n "$review_state" ]; then
@@ -93,14 +93,14 @@ while true; do
   fi
 
   # Bot responded with comments → return batch immediately
-  if [ -n "$review_state" ] && $has_comments; then
+  if [ -n "$review_state" ] && [ "$has_comments" = "true" ]; then
     break
   fi
 
   # 10-min window expired
   if [ $window_elapsed -ge 600 ]; then
     # Human comments accumulated → return batch
-    if $has_comments; then
+    if [ "$has_comments" = "true" ]; then
       break
     fi
     # Bot never responded → re-request, flag timeout
@@ -126,7 +126,7 @@ while true; do
     check_pending=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == false)] | length')
     if [ "$check_pending" -eq 0 ]; then
       # CI clean — final review check
-      if $has_comments; then
+      if [ "$has_comments" = "true" ]; then
         break
       fi
       # Done if no bot configured or bot already reviewed clean.
@@ -181,8 +181,9 @@ human_id_json=$(echo "$poll_result" | jq -c '.human_comment_ids // []')
 human_ids=$(echo "$human_id_json" | jq 'length')
 
 if [ "$human_ids" -gt 0 ]; then
-  human_comment_details=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" \
-    --jq "[.[] | select(.id as \$id | $human_id_json | index(\$id)) | {id, path, body, user: .user.login}]" 2>/dev/null || echo "[]")
+  human_comment_details=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" 2>/dev/null \
+    | jq --argjson ids "$human_id_json" \
+    '[.[] | select(.id as $id | $ids | index($id)) | {id, path, body, user: .user.login}]' 2>/dev/null || echo "[]")
 fi
 
 # --- Output ---

@@ -118,7 +118,7 @@ assert_json "$result" '[.checks[] | select(.state == "SUCCESS")] | length' '2' "
 assert_json "$result" '.merge_state' 'CLEAN' "merge_state is CLEAN"
 
 echo "--- ci-poll.sh: SHA mismatch ---"
-result=$(run_poll --pr 1 --repo owner/name --sha wrong_sha)
+result=$(run_poll --pr 1 --repo owner/name --sha def456)
 assert_json "$result" '.sha_match' 'false' "sha_match is false on mismatch"
 assert_json "$result" '.head_sha' 'abc123' "returns actual head_sha"
 
@@ -251,7 +251,7 @@ else
 fi
 
 echo "--- ci-loop.sh: SHA mismatch exits immediately ---"
-result=$(run_loop --pr 1 --repo owner/name --sha wrong_sha)
+result=$(run_loop --pr 1 --repo owner/name --sha def456)
 assert_json "$result" '.sha_match' 'false' "loop: exits on SHA mismatch"
 
 echo "--- ci-loop.sh: review comments trigger early return ---"

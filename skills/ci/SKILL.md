@@ -39,7 +39,8 @@ Read the JSON result:
 - `review_bot_timeout == true` → mention to user, not a blocker.
 - `review_comments` or `human_comment_details` non-empty → fix comments (step 3). Pushing restarts CI.
 - Any check with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
-- All clean + no comments → **done → Completion**.
+- All clean + no comments, but `review_bot` is configured (not `none`) and `review_state` is null/empty → **not done**. Re-request the bot via `gh api repos/{owner}/{name}/pulls/{pr}/requested_reviewers -X POST -f "reviewers[]={BOT}"` and restart step 1 with `--review-bot`.
+- All clean + no comments + review satisfied (`review_bot` is `none` OR `review_state` is non-null) → **done → Completion**.
 
 ### 3. Fix
 
@@ -67,6 +68,8 @@ Not last attempt → back to step 1. Last attempt → fix + commit + push, then 
 - OR max attempts reached
 
 ## Completion
+
+**Pre-check**: If `review_bot` is configured (not `none`) and `review_state` is null or empty, the bot never reviewed this SHA. Do NOT present completion options. Warn user that the review bot never responded and offer to re-request the bot and re-poll (back to step 1 with `--review-bot`).
 
 Use `merge_state` from last poll. `AskUserQuestion` with options:
 

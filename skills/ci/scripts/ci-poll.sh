@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ci-poll.sh — Single-shot CI/review status snapshot for a PR.
-# Returns normalized and aggregated GitHub API data as JSON.
+# Returns normalized GitHub API data as JSON (field mapping only).
 #
 # Usage: ci-poll.sh --pr PR --repo OWNER/NAME --sha SHA [--review-bot BOT]
 #
@@ -32,13 +32,24 @@ fi
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
-# Validate REVIEW_BOT — reject quotes and backslashes that break jq interpolation
+# Validate inputs
+if ! echo "$PR" | grep -qE '^[0-9]+$'; then
+  printf '{"error":"invalid PR format"}\n'
+  exit 0
+fi
+if ! echo "$REPO" | grep -qE '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$'; then
+  printf '{"error":"invalid REPO format"}\n'
+  exit 0
+fi
+if ! echo "$SHA" | grep -qE '^[a-f0-9]+$'; then
+  printf '{"error":"invalid SHA format"}\n'
+  exit 0
+fi
 if [ -n "$REVIEW_BOT" ]; then
-  case "$REVIEW_BOT" in
-    *'"'*|*'\\'*)
-      printf '{"error":"invalid review-bot format"}\n'
-      exit 0 ;;
-  esac
+  if ! echo "$REVIEW_BOT" | grep -qE '^[][a-zA-Z0-9._-]+$'; then
+    printf '{"error":"invalid review-bot format"}\n'
+    exit 0
+  fi
 fi
 
 # --- Helper: safe gh call, returns empty string on failure ---
@@ -84,8 +95,9 @@ review_id="null"
 review_comment_count=0
 
 if [ -n "$REVIEW_BOT" ]; then
-  review_obj=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" \
-    --jq "[.[] | select(.user.login == \"$REVIEW_BOT\") | select(.state != \"PENDING\") | select(.commit_id == \"$SHA\")] | last // empty" 2>/dev/null || true)
+  review_obj=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" 2>/dev/null \
+    | jq --arg bot "$REVIEW_BOT" --arg sha "$SHA" \
+    '[.[] | select(.user.login == $bot) | select(.state != "PENDING") | select(.commit_id == $sha)] | last // empty' 2>/dev/null || true)
 
   if [ -n "$review_obj" ] && [ "$review_obj" != "null" ]; then
     review_id=$(echo "$review_obj" | jq -r '.id // empty')
@@ -103,8 +115,9 @@ fi
 # but user.type is consistent).
 human_comment_ids="[]"
 
-human_comments=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" \
-  --jq "[.[] | select(.commit_id == \"$SHA\" or .original_commit_id == \"$SHA\") | select(.user.type != \"Bot\")] | [.[].id]" 2>/dev/null || echo "[]")
+human_comments=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" 2>/dev/null \
+  | jq --arg sha "$SHA" \
+  '[.[] | select(.commit_id == $sha or .original_commit_id == $sha) | select(.user.type != "Bot")] | [.[].id]' 2>/dev/null || echo "[]")
 
 if [ -n "$human_comments" ] && [ "$human_comments" != "null" ]; then
   human_comment_ids="$human_comments"
