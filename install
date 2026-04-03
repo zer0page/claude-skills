@@ -123,8 +123,8 @@ if $UNINSTALL; then
   exit 0
 fi
 
-# Symlink hook scripts
-if [ -d "$HOOKS_SRC" ]; then
+# Symlink hook scripts (skip if explicitly disabled via --tmux-notify 0)
+if [ -d "$HOOKS_SRC" ] && [ "$TMUX_NOTIFY_FLAG" != "0" ]; then
   mkdir -p "$HOOKS_DIR"
   chmod 700 "$HOOKS_DIR" 2>/dev/null || true
 
@@ -180,8 +180,8 @@ CUR_TMUX_NOTIFY=""
 if [ -f "$SETTINGS_FILE" ] && jq -e . "$SETTINGS_FILE" >/dev/null 2>&1; then
   CUR_AGENT_TEAMS=$(jq -r 'if (.env | type) == "object" then .env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
   CUR_REVIEW_BOT=$(jq -r 'if (.env | type) == "object" then .env.REVIEW_BOT // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
-  # Check if tmux-notify hooks are present in any hook group
-  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks | type) == "object" and ([.hooks[]? | if type == "array" then .[] else empty end | .hooks[]? | .command? // empty | select(test("tmux-notify\\.sh"))] | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
+  # Check if tmux-notify hooks are present in the groups managed by this script
+  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks | type) == "object" and ([.hooks.Stop?, .hooks.UserPromptSubmit? | if type == "array" then .[] else empty end | .hooks[]? | .command? // empty | select(test("tmux-notify\\.sh"))] | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
 fi
 
 # Show current configuration

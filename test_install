@@ -274,10 +274,10 @@ fi
 
 # --- Test: hook symlink idempotent ---
 output=$(HOME="$proj_hooks" "$INSTALL" --project "$proj_hooks" --agent-teams 1 --tmux-notify 1 2>&1)
-if echo "$output" | grep -q "already linked"; then
+if echo "$output" | grep -Fq "tmux-notify.sh (already linked)"; then
   pass "hooks — idempotent reinstall"
 else
-  fail "hooks — expected 'already linked'"
+  fail "hooks — expected 'tmux-notify.sh (already linked)'"
 fi
 
 # --- Test: hooks added to settings.json ---
