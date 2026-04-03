@@ -179,8 +179,8 @@ CUR_TMUX_NOTIFY=""
 if [ -f "$SETTINGS_FILE" ] && jq -e . "$SETTINGS_FILE" >/dev/null 2>&1; then
   CUR_AGENT_TEAMS=$(jq -r 'if (.env | type) == "object" then .env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
   CUR_REVIEW_BOT=$(jq -r 'if (.env | type) == "object" then .env.REVIEW_BOT // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
-  # Check if tmux-notify hooks are present
-  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks.Stop // [] | map(select(.hooks // [] | any(.command? // "" | test("tmux-notify\\.sh")))) | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
+  # Check if tmux-notify hooks are present in any hook group
+  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks | type) == "object" and ([.hooks[]? | if type == "array" then .[] else empty end | .hooks[]? | .command? // empty | select(test("tmux-notify\\.sh"))] | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
 fi
 
 # Show current configuration
@@ -304,21 +304,25 @@ else
        --argjson hooks "$DESIRED_HOOKS" --argjson rm_notify "$REMOVE_TMUX_NOTIFY" '
     .env = ($desired.env * (if (.env | type) == "object" then .env else {} end)) |
     if $rm_teams then del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) else . end |
-    # Merge hooks: add tmux-notify entries without clobbering user hooks
-    # Helper: filter out entries where any hook command matches tmux-notify.sh
-    def without_tmux_notify: map(select(.hooks // [] | any(.command? // "" | test("tmux-notify\\.sh")) | not));
+    # Merge hooks: add/remove tmux-notify commands without clobbering user hooks
+    # Helper: remove tmux-notify commands from .hooks[] arrays within each matcher entry,
+    # dropping the entry entirely only if no other hooks remain
+    def strip_tmux_notify: map(
+      .hooks = [(.hooks // [])[] | select((.command? // "") | test("tmux-notify\\.sh") | not)] |
+      select((.hooks | length) > 0)
+    );
     if $hooks != null then
-      .hooks = ((.hooks // {}) |
-        (.Stop = ((.Stop // []) | without_tmux_notify) + $hooks.Stop) |
-        (.UserPromptSubmit = ((.UserPromptSubmit // []) | without_tmux_notify) + $hooks.UserPromptSubmit) |
+      .hooks = ((if (.hooks | type) == "object" then .hooks else {} end) |
+        (.Stop = ((.Stop // []) | strip_tmux_notify) + $hooks.Stop) |
+        (.UserPromptSubmit = ((.UserPromptSubmit // []) | strip_tmux_notify) + $hooks.UserPromptSubmit) |
         if (.Stop | length) == 0 then del(.Stop) else . end |
         if (.UserPromptSubmit | length) == 0 then del(.UserPromptSubmit) else . end
       )
     elif $rm_notify then
-      if .hooks then
+      if (.hooks | type) == "object" then
         .hooks = (.hooks |
-          (.Stop = ((.Stop // []) | without_tmux_notify)) |
-          (.UserPromptSubmit = ((.UserPromptSubmit // []) | without_tmux_notify)) |
+          (.Stop = ((.Stop // []) | strip_tmux_notify)) |
+          (.UserPromptSubmit = ((.UserPromptSubmit // []) | strip_tmux_notify)) |
           if (.Stop | length) == 0 then del(.Stop) else . end |
           if (.UserPromptSubmit | length) == 0 then del(.UserPromptSubmit) else . end
         ) |
@@ -326,7 +330,7 @@ else
       else . end
     else . end
   ' "$SETTINGS_FILE" > "$TEMP" 2>/dev/null; then
-    echo "Warning: $SETTINGS_FILE merge failed (invalid JSON?) — skipping. Add env vars manually." >&2
+    echo "Warning: $SETTINGS_FILE merge failed (invalid JSON?) — skipping. Add env vars and configure hooks manually." >&2
     rm -f "$TEMP"
     trap - EXIT
     exit 0

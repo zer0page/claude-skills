@@ -294,7 +294,6 @@ if command -v jq &>/dev/null; then
   fi
 else
   pass "settings.json hooks — skipped (jq not available)"
-  pass "settings.json hooks — skipped (jq not available)"
 fi
 
 # --- Test: hooks NOT added when disabled ---
@@ -347,7 +346,6 @@ if command -v jq &>/dev/null; then
     fail "settings.json — user hook command modified"
   fi
 else
-  pass "settings.json user hooks — skipped (jq not available)"
   pass "settings.json user hooks — skipped (jq not available)"
 fi
 
