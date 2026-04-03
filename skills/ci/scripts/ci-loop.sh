@@ -42,16 +42,16 @@ if [ -z "$PR" ] || [ -z "$REPO" ] || [ -z "$SHA" ]; then
   exit 1
 fi
 
-# Validate inputs
-if ! echo "$PR" | grep -qE '^[0-9]+$'; then
+# Validate inputs (printf avoids echo interpreting -n/-e as flags)
+if ! printf '%s' "$PR" | grep -qE '^[0-9]+$'; then
   echo '{"error":"invalid PR format"}'
   exit 0
 fi
-if ! echo "$REPO" | grep -qE '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$'; then
+if ! printf '%s' "$REPO" | grep -qE '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$'; then
   echo '{"error":"invalid REPO format"}'
   exit 0
 fi
-if ! echo "$SHA" | grep -qE '^[A-Fa-f0-9]{40}$'; then
+if ! printf '%s' "$SHA" | grep -qE '^[A-Fa-f0-9]{40}$'; then
   echo '{"error":"invalid SHA format: expected full 40-character commit SHA"}'
   exit 0
 fi
@@ -61,7 +61,7 @@ NAME="${REPO##*/}"
 
 # Validate bot name: alphanumeric/dots/hyphens with optional [bot] suffix
 if [ -n "$REVIEW_BOT" ]; then
-  if ! echo "$REVIEW_BOT" | grep -qE '^[a-zA-Z0-9._-]+(\[bot\])?$'; then
+  if ! printf '%s' "$REVIEW_BOT" | grep -qE '^[a-zA-Z0-9._-]+(\[bot\])?$'; then
     echo '{"error":"invalid review-bot format"}'
     exit 0
   fi
