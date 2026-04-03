@@ -39,15 +39,20 @@ Three core personas always run:
 - **Expert** — architecture, edge cases, performance, scalability
 - **Security adversary** — threats, validation, injection, auth
 
-Optional personas are added based on classification unless `--core` is passed:
+Optional personas (2 per type) are added based on classification unless `--core` is passed:
 
 | Target type | Optional personas |
 |---|---|
 | Frontend/UI | Usability, Beginner |
-| API/Backend | Usability |
-| CLI/Scripts | Beginner |
-| Config/Docs | Beginner |
-| Infra/DevOps | Usability |
+| API/Backend | Usability, Ops |
+| CLI/Scripts | Usability, Beginner |
+| Config/Docs | Beginner, Ops |
+| Infra/DevOps | Ops, Usability |
+
+Available optional personas:
+- **Usability** — API/UX design, developer experience, ergonomics
+- **Beginner** — clarity, documentation, onboarding, naming
+- **Ops** — observability, logging, error handling, operational cost, graceful degradation
 
 `--core`: run only the 3 core personas. Useful for lighter pre-implementation checks.
 
