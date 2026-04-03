@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Full development workflow — brainstorm, plan, audit, simplify, build, ship. Orchestrates /brainstorming, /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
+description: Full development workflow — brainstorm, plan, audit, simplify, build, ship. Orchestrates /brainstorming (or /brainstorm-team), /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
 ---
 
 # /implement [description]
@@ -29,7 +29,7 @@ Name the worktree from the description (lowercase, hyphens, max 30 chars). If co
    - **/brainstorming** (default) — single-agent structured dialogue.
    - **/brainstorm-team** — multi-perspective Agent Teams exploration.
    Otherwise, run `/brainstorming` directly.
-2. Run the selected brainstorming skill to explore the idea. Both modes produce a design summary (understanding, assumptions, decision log) written to `DESIGN.md`.
+2. Run the selected brainstorming skill to explore the idea. Both modes produce a durable Markdown design summary (understanding, assumptions, decision log).
 3. `AskUserQuestion` for additional context before planning.
 
 ### Phase 2: Plan
