@@ -53,7 +53,7 @@ _Skipped with `--quick`._
 1. `AskUserQuestion` with three options:
    - **Run audit** — proceed with pre-implementation audit.
    - **Skip audit** — proceed directly to Phase 5 (implementation).
-   - **Refine plan** — return to Phase 3 (re-enter plan mode, revise, re-approve, then repeat Phase 4).
+   - **Refine plan** — return to Phase 2 step 3 (enter plan mode, revise plan, then Phase 3 re-approval and repeat Phase 4).
 2. If run audit: `/audit --core --no-handoff [primary-target-directory]` from the plan.
 3. Fix findings. If plan scope changes, return to Phase 3 for re-approval.
 
