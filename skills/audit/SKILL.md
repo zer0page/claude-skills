@@ -56,7 +56,7 @@ Available optional personas:
 
 `--core`: run only the 3 core personas. Useful for lighter pre-implementation checks.
 
-Personas may be merged when concerns overlap (e.g., Usability + Beginner into a single agent).
+When two optional personas have overlapping concerns, they may share a single Explore agent that covers both perspectives.
 
 ### 4. Spawn personas as Explore agents
 
