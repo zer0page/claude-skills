@@ -41,8 +41,8 @@ if ! echo "$REPO" | grep -qE '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$'; then
   printf '{"error":"invalid REPO format"}\n'
   exit 0
 fi
-if ! echo "$SHA" | grep -qE '^[A-Fa-f0-9]{7,40}$'; then
-  printf '{"error":"invalid SHA format"}\n'
+if ! echo "$SHA" | grep -qE '^[A-Fa-f0-9]{40}$'; then
+  printf '{"error":"invalid SHA format: expected full 40-character commit SHA"}\n'
   exit 0
 fi
 # Validate bot name: alphanumeric/dots/hyphens with optional [bot] suffix

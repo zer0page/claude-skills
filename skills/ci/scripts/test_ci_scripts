@@ -101,7 +101,7 @@ run_loop() {
 echo "--- ci-poll.sh: all checks clean ---"
 RESP="$TMPDIR_BASE/t1"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"},{"__typename":"StatusContext","context":"Kochiku","state":"SUCCESS","targetUrl":"https://example.com"}]
 EOF
@@ -110,7 +110,7 @@ echo "[]" > "$RESP/reviews"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_poll --pr 1 --repo owner/name --sha abc1234)
+result=$(run_poll --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
 assert_json "$result" '.sha_match' 'true' "sha_match is true"
 assert_json "$result" '.checks | length' '2' "2 checks"
 assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '0' "0 pending"
@@ -118,14 +118,14 @@ assert_json "$result" '[.checks[] | select(.state == "SUCCESS")] | length' '2' "
 assert_json "$result" '.merge_state' 'CLEAN' "merge_state is CLEAN"
 
 echo "--- ci-poll.sh: SHA mismatch ---"
-result=$(run_poll --pr 1 --repo owner/name --sha def4567)
+result=$(run_poll --pr 1 --repo owner/name --sha f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4b5a6f1e2)
 assert_json "$result" '.sha_match' 'false' "sha_match is false on mismatch"
-assert_json "$result" '.head_sha' 'abc1234' "returns actual head_sha"
+assert_json "$result" '.head_sha' 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' "returns actual head_sha"
 
 echo "--- ci-poll.sh: mixed failures (CheckRun + StatusContext) ---"
 RESP="$TMPDIR_BASE/t3"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"},{"__typename":"StatusContext","context":"Kochiku","state":"FAILURE","targetUrl":"https://kochiku.example.com"},{"__typename":"StatusContext","context":"Task List","state":"ERROR","targetUrl":"https://example.com/tasks"}]
 EOF
@@ -134,7 +134,7 @@ echo "[]" > "$RESP/reviews"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_poll --pr 1 --repo owner/name --sha abc1234)
+result=$(run_poll --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
 assert_json "$result" '[.checks[] | select(.state == "FAILURE" or .state == "ERROR")] | length' '2' "2 non-success checks"
 assert_json "$result" '[.checks[] | select(.state == "FAILURE")][0].type' 'StatusContext' "first failure is StatusContext"
 assert_json "$result" '[.checks[] | select(.state == "FAILURE")][0].state' 'FAILURE' "raw state is FAILURE"
@@ -143,7 +143,7 @@ assert_json "$result" '.merge_state' 'BLOCKED' "merge_state is BLOCKED"
 echo "--- ci-poll.sh: pending checks ---"
 RESP="$TMPDIR_BASE/t4"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"IN_PROGRESS","conclusion":null,"detailsUrl":"https://example.com"},{"__typename":"StatusContext","context":"Kochiku","state":"PENDING","targetUrl":"https://example.com"}]
 EOF
@@ -152,24 +152,24 @@ echo "[]" > "$RESP/reviews"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_poll --pr 1 --repo owner/name --sha abc1234)
+result=$(run_poll --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
 assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '2' "2 pending checks"
 assert_json "$result" '[.checks[] | select(.resolved == true)] | length' '0' "0 resolved (still pending)"
 
 echo "--- ci-poll.sh: review bot with comments (raw state) ---"
 RESP="$TMPDIR_BASE/t5"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"}]
 EOF
 echo "CLEAN" > "$RESP/merge_state"
-echo '[{"id":99,"state":"COMMENTED","user":{"login":"bot[bot]"},"commit_id":"abc1234"}]' > "$RESP/reviews"
+echo '[{"id":99,"state":"COMMENTED","user":{"login":"bot[bot]"},"commit_id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"}]' > "$RESP/reviews"
 echo '[{"id":1,"path":"file.txt","body":"fix this"}]' > "$RESP/review_comments"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_poll --pr 1 --repo owner/name --sha abc1234 --review-bot "bot[bot]")
+result=$(run_poll --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 --review-bot "bot[bot]")
 assert_json "$result" '.review_state' 'COMMENTED' "raw review_state is COMMENTED"
 assert_json "$result" '.review_comment_count' '1' "review has 1 comment"
 assert_json "$result" '.review_id' '99' "review_id returned"
@@ -177,24 +177,24 @@ assert_json "$result" '.review_id' '99' "review_id returned"
 echo "--- ci-poll.sh: review bot approved (raw state) ---"
 RESP="$TMPDIR_BASE/t6"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"}]
 EOF
 echo "CLEAN" > "$RESP/merge_state"
-echo '[{"id":99,"state":"APPROVED","user":{"login":"bot[bot]"},"commit_id":"abc1234"}]' > "$RESP/reviews"
+echo '[{"id":99,"state":"APPROVED","user":{"login":"bot[bot]"},"commit_id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"}]' > "$RESP/reviews"
 echo '[]' > "$RESP/review_comments"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_poll --pr 1 --repo owner/name --sha abc1234 --review-bot "bot[bot]")
+result=$(run_poll --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 --review-bot "bot[bot]")
 assert_json "$result" '.review_state' 'APPROVED' "raw review_state is APPROVED"
 assert_json "$result" '.review_comment_count' '0' "0 review comments"
 
 echo "--- ci-poll.sh: no review bot ---"
 RESP="$TMPDIR_BASE/t7"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"}]
 EOF
@@ -202,7 +202,7 @@ echo "CLEAN" > "$RESP/merge_state"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_poll --pr 1 --repo owner/name --sha abc1234)
+result=$(run_poll --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
 assert_json "$result" '.review_state' 'null' "review_state is null when no bot configured"
 assert_json "$result" '.review_id' 'null' "review_id is null"
 
@@ -213,7 +213,7 @@ assert_json "$result" '.review_id' 'null' "review_id is null"
 echo "--- ci-loop.sh: clean result (no failures, no comments) ---"
 RESP="$TMPDIR_BASE/t8"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://example.com"}]
 EOF
@@ -222,7 +222,7 @@ echo "[]" > "$RESP/reviews"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_loop --pr 1 --repo owner/name --sha abc1234)
+result=$(run_loop --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
 assert_json "$result" '[.checks[] | select(.state == "SUCCESS")] | length' '1' "loop: 1 passed"
 assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '0' "loop: 0 pending"
 assert_json "$result" '.review_bot_timeout' 'false' "loop: no bot timeout"
@@ -231,7 +231,7 @@ assert_json "$result" '.ci_logs' '' "loop: no ci_logs"
 echo "--- ci-loop.sh: failure fetches logs ---"
 RESP="$TMPDIR_BASE/t9"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"COMPLETED","conclusion":"FAILURE","detailsUrl":"https://github.com/owner/name/actions/runs/12345/job/67890"}]
 EOF
@@ -241,7 +241,7 @@ echo "[]" > "$RESP/pr_comments"
 echo "Error: tests failed on line 42" > "$RESP/run_logs"
 create_mock_gh "$RESP"
 
-result=$(run_loop --pr 1 --repo owner/name --sha abc1234)
+result=$(run_loop --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
 assert_json "$result" '[.checks[] | select(.state == "FAILURE")] | length' '1' "loop: 1 failed check"
 ci_logs=$(echo "$result" | jq -r '.ci_logs')
 if echo "$ci_logs" | grep -q "Run 12345"; then
@@ -251,26 +251,50 @@ else
 fi
 
 echo "--- ci-loop.sh: SHA mismatch exits immediately ---"
-result=$(run_loop --pr 1 --repo owner/name --sha def4567)
+result=$(run_loop --pr 1 --repo owner/name --sha f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4b5a6f1e2)
 assert_json "$result" '.sha_match' 'false' "loop: exits on SHA mismatch"
 
 echo "--- ci-loop.sh: review comments trigger early return ---"
 RESP="$TMPDIR_BASE/t10"
 mkdir -p "$RESP"
-echo "abc1234" > "$RESP/head_sha"
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" > "$RESP/head_sha"
 cat > "$RESP/checks" << 'EOF'
 [{"__typename":"CheckRun","name":"build","status":"IN_PROGRESS","conclusion":null,"detailsUrl":"https://example.com"}]
 EOF
 echo "BLOCKED" > "$RESP/merge_state"
-echo '[{"id":99,"state":"COMMENTED","user":{"login":"bot[bot]"},"commit_id":"abc1234"}]' > "$RESP/reviews"
+echo '[{"id":99,"state":"COMMENTED","user":{"login":"bot[bot]"},"commit_id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"}]' > "$RESP/reviews"
 echo '[{"id":1,"path":"file.txt","body":"fix this"}]' > "$RESP/review_comments"
 echo "[]" > "$RESP/pr_comments"
 create_mock_gh "$RESP"
 
-result=$(run_loop --pr 1 --repo owner/name --sha abc1234 --review-bot "bot[bot]")
+result=$(run_loop --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 --review-bot "bot[bot]")
 assert_json "$result" '.review_comment_count' '1' "loop: review comments returned"
 # CI still pending but loop returned early due to review comments
 assert_json "$result" '[.checks[] | select(.resolved == false)] | length' '1' "loop: CI still pending (early return)"
+
+# ============================================================
+# Input validation tests
+# ============================================================
+
+echo "--- ci-poll.sh: rejects non-numeric PR ---"
+result=$(run_poll --pr "abc" --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
+assert_json "$result" '.error' 'invalid PR format' "rejects non-numeric PR"
+
+echo "--- ci-poll.sh: rejects malformed REPO ---"
+result=$(run_poll --pr 1 --repo "bad repo!" --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
+assert_json "$result" '.error' 'invalid REPO format' "rejects malformed REPO"
+
+echo "--- ci-poll.sh: rejects short SHA ---"
+result=$(run_poll --pr 1 --repo owner/name --sha abc1234)
+assert_json "$result" '.error' 'invalid SHA format: expected full 40-character commit SHA' "rejects short SHA"
+
+echo "--- ci-poll.sh: rejects non-hex SHA ---"
+result=$(run_poll --pr 1 --repo owner/name --sha g1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2)
+assert_json "$result" '.error' 'invalid SHA format: expected full 40-character commit SHA' "rejects non-hex SHA"
+
+echo "--- ci-poll.sh: rejects invalid review-bot ---"
+result=$(run_poll --pr 1 --repo owner/name --sha a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2 --review-bot 'bad"bot')
+assert_json "$result" '.error' 'invalid review-bot format' "rejects invalid review-bot"
 
 # ============================================================
 # Summary
