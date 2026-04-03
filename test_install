@@ -318,7 +318,9 @@ cat > "$proj_rmhooks/.claude/settings.json" <<'HOOKJSON'
 HOOKJSON
 HOME="$proj_rmhooks" "$INSTALL" --project "$proj_rmhooks" --agent-teams 1 --tmux-notify 0 > /dev/null 2>&1
 if command -v jq &>/dev/null; then
-  if jq -e '.hooks' "$proj_rmhooks/.claude/settings.json" >/dev/null 2>&1; then
+  if ! jq empty "$proj_rmhooks/.claude/settings.json" >/dev/null 2>&1; then
+    fail "settings.json — invalid JSON after disable"
+  elif jq -e '.hooks' "$proj_rmhooks/.claude/settings.json" >/dev/null 2>&1; then
     fail "settings.json — hooks should be removed after disable"
   else
     pass "settings.json — hooks removed after disable"

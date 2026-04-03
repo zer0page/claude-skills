@@ -85,4 +85,4 @@ Prepends ❓ to the tmux window name when Claude is waiting for your input. Clea
 }
 ```
 
-Set automatically by `./install` (uses absolute `$HOME` path). Disable with `./install --tmux-notify 0`.
+Set automatically by `./install`; the example above uses `$HOME` for readability, but `./install` writes an expanded absolute path into `settings.json`. Disable with `./install --tmux-notify 0`.
