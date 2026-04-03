@@ -92,6 +92,18 @@ else
   pass "unknown option — rejected"
 fi
 
+# --- Test: --agent-teams rejects invalid values ---
+if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --agent-teams 2 2>/dev/null; then
+  fail "--agent-teams 2 — should have been rejected"
+else
+  pass "--agent-teams 2 — rejected"
+fi
+if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --agent-teams yes 2>/dev/null; then
+  fail "--agent-teams yes — should have been rejected"
+else
+  pass "--agent-teams yes — rejected"
+fi
+
 # --- Test: settings.json created when it doesn't exist ---
 echo "--- settings.json tests ---"
 proj_settings="$TMPDIR_BASE/project_settings"
