@@ -65,7 +65,7 @@ Prepends ❓ to the tmux window name when Claude is waiting for your input. Clea
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/tmux-notify.sh notify"
+            "command": "$HOME/.claude/hooks/tmux-notify.sh notify"
           }
         ]
       }
@@ -76,7 +76,7 @@ Prepends ❓ to the tmux window name when Claude is waiting for your input. Clea
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/tmux-notify.sh clear"
+            "command": "$HOME/.claude/hooks/tmux-notify.sh clear"
           }
         ]
       }
@@ -85,4 +85,4 @@ Prepends ❓ to the tmux window name when Claude is waiting for your input. Clea
 }
 ```
 
-Set automatically by `./install`. Disable with `./install --tmux-notify 0`.
+Set automatically by `./install` (uses absolute `$HOME` path). Disable with `./install --tmux-notify 0`.

@@ -117,6 +117,7 @@ if $UNINSTALL; then
   if [ -L "$HOOKS_TARGET" ] && [[ "$(readlink "$HOOKS_TARGET")" == "$HOOKS_SRC/"* ]]; then
     rm "$HOOKS_TARGET"
     echo "  removed $HOOKS_TARGET"
+    echo "  note: run './install --tmux-notify 0' to also remove hook entries from settings.json" >&2
   fi
   echo "done (uninstalled)"
   exit 0
