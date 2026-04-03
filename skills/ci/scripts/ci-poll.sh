@@ -45,8 +45,9 @@ if ! echo "$SHA" | grep -qE '^[a-f0-9]+$'; then
   printf '{"error":"invalid SHA format"}\n'
   exit 0
 fi
+# Validate bot name: alphanumeric/dots/hyphens with optional [bot] suffix
 if [ -n "$REVIEW_BOT" ]; then
-  if ! echo "$REVIEW_BOT" | grep -qE '^[][a-zA-Z0-9._-]+$'; then
+  if ! echo "$REVIEW_BOT" | grep -qE '^[a-zA-Z0-9._-]+(\[bot\])?$'; then
     printf '{"error":"invalid review-bot format"}\n'
     exit 0
   fi
@@ -95,6 +96,7 @@ review_id="null"
 review_comment_count=0
 
 if [ -n "$REVIEW_BOT" ]; then
+  # --arg passes values safely to jq (prevents injection via bot name or SHA)
   review_obj=$(gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" 2>/dev/null \
     | jq --arg bot "$REVIEW_BOT" --arg sha "$SHA" \
     '[.[] | select(.user.login == $bot) | select(.state != "PENDING") | select(.commit_id == $sha)] | last // empty' 2>/dev/null || true)

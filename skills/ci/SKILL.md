@@ -69,7 +69,7 @@ Not last attempt → back to step 1. Last attempt → fix + commit + push, then 
 
 ## Completion
 
-**Pre-check**: If `review_bot` is configured (not `none`) and `review_state` is null or empty, the bot never reviewed this SHA. Do NOT present completion options. Warn user that the review bot never responded and offer to re-request the bot and re-poll (back to step 1 with `--review-bot`).
+**Pre-check**: If `review_bot` is configured (not `none`) and `review_state` is null or empty, the review gate is not satisfied. **STOP — do not proceed to `AskUserQuestion`.** Warn user that the review bot never responded and re-request the bot, then return to step 1 with `--review-bot`.
 
 Use `merge_state` from last poll. `AskUserQuestion` with options:
 

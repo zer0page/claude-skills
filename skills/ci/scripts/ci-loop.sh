@@ -45,6 +45,14 @@ fi
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
+# Validate bot name: alphanumeric/dots/hyphens with optional [bot] suffix
+if [ -n "$REVIEW_BOT" ]; then
+  if ! echo "$REVIEW_BOT" | grep -qE '^[a-zA-Z0-9._-]+(\[bot\])?$'; then
+    echo '{"error":"invalid review-bot format"}'
+    exit 0
+  fi
+fi
+
 # --- Build poll args ---
 POLL_ARGS=(--pr "$PR" --repo "$REPO" --sha "$SHA")
 if [ -n "$REVIEW_BOT" ]; then
@@ -67,7 +75,7 @@ fi
 # When CI resolves, one final review check before returning.
 poll_result=""
 window_elapsed=0
-review_bot_timeout=false
+review_bot_timeout="false"
 has_bot="false"
 [ -n "$REVIEW_BOT" ] && has_bot="true"
 
@@ -89,7 +97,7 @@ while true; do
 
   # Bot responded → clear timeout flag (bot is alive)
   if [ -n "$review_state" ]; then
-    review_bot_timeout=false
+    review_bot_timeout="false"
   fi
 
   # Bot responded with comments → return batch immediately
@@ -105,7 +113,7 @@ while true; do
     fi
     # Bot never responded → re-request, flag timeout
     if [ "$has_bot" = "true" ] && [ -z "$review_state" ]; then
-      review_bot_timeout=true
+      review_bot_timeout="true"
       gh api "repos/$OWNER/$NAME/pulls/$PR/requested_reviewers" \
         -X POST -f "reviewers[]=$REVIEW_BOT" >/dev/null 2>&1 || true
     fi
