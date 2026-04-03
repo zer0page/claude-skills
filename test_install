@@ -21,7 +21,7 @@ mkdir -p "$FAKE_HOME"
 # --- Test: install all skills into a project directory ---
 proj="$TMPDIR_BASE/project1"
 mkdir -p "$proj"
-HOME="$FAKE_HOME" "$INSTALL" --project "$proj" > /dev/null
+HOME="$FAKE_HOME" "$INSTALL" --project "$proj" --agent-teams 1 > /dev/null
 
 for skill in "$SCRIPT_DIR"/skills/*/; do
   name=$(basename "$skill")
@@ -34,7 +34,7 @@ for skill in "$SCRIPT_DIR"/skills/*/; do
 done
 
 # --- Test: idempotent reinstall ---
-output=$(HOME="$FAKE_HOME" "$INSTALL" --project "$proj" 2>&1)
+output=$(HOME="$FAKE_HOME" "$INSTALL" --project "$proj" --agent-teams 1 2>&1)
 if echo "$output" | grep -q "already linked"; then
   pass "idempotent reinstall"
 else
@@ -44,7 +44,7 @@ fi
 # --- Test: --skill filter installs only one ---
 proj2="$TMPDIR_BASE/project2"
 mkdir -p "$proj2"
-HOME="$FAKE_HOME" "$INSTALL" --project "$proj2" --skill audit > /dev/null
+HOME="$FAKE_HOME" "$INSTALL" --project "$proj2" --skill audit --agent-teams 1 > /dev/null
 
 if [ -L "$proj2/.claude/skills/audit" ]; then
   pass "--skill filter — audit installed"
@@ -71,7 +71,7 @@ fi
 # --- Test: skips non-symlink targets ---
 proj3="$TMPDIR_BASE/project3"
 mkdir -p "$proj3/.claude/skills/audit"
-output=$(HOME="$FAKE_HOME" "$INSTALL" --project "$proj3" --skill audit 2>&1)
+output=$(HOME="$FAKE_HOME" "$INSTALL" --project "$proj3" --skill audit --agent-teams 1 2>&1)
 if echo "$output" | grep -q "skipped"; then
   pass "skip non-symlink — reported skipped"
 else
@@ -79,14 +79,14 @@ else
 fi
 
 # --- Test: --skill rejects unknown skill name ---
-if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --skill nonexistent 2>/dev/null; then
+if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --skill nonexistent --agent-teams 1 2>/dev/null; then
   fail "--skill unknown — should have been rejected"
 else
   pass "--skill unknown — rejected"
 fi
 
 # --- Test: unknown option exits with error ---
-if HOME="$FAKE_HOME" "$INSTALL" --bogus 2>/dev/null; then
+if HOME="$FAKE_HOME" "$INSTALL" --bogus 2>/dev/null < /dev/null; then
   fail "unknown option — should have exited 1"
 else
   pass "unknown option — rejected"
@@ -96,7 +96,7 @@ fi
 echo "--- settings.json tests ---"
 proj_settings="$TMPDIR_BASE/project_settings"
 mkdir -p "$proj_settings"
-HOME="$proj_settings" "$INSTALL" --project "$proj_settings" > /dev/null 2>&1
+HOME="$proj_settings" "$INSTALL" --project "$proj_settings" --agent-teams 1 > /dev/null 2>&1
 if [ -f "$proj_settings/.claude/settings.json" ]; then
   if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' "$proj_settings/.claude/settings.json" >/dev/null 2>&1; then
     pass "settings.json — created with AGENT_TEAMS"
@@ -123,7 +123,7 @@ fi
 proj_merge="$TMPDIR_BASE/project_merge"
 mkdir -p "$proj_merge/.claude"
 echo '{"env":{"MY_CUSTOM_VAR":"hello"},"other_key":"preserved"}' > "$proj_merge/.claude/settings.json"
-HOME="$proj_merge" "$INSTALL" --project "$proj_merge" > /dev/null 2>&1
+HOME="$proj_merge" "$INSTALL" --project "$proj_merge" --agent-teams 1 > /dev/null 2>&1
 if command -v jq &>/dev/null; then
   if jq -e '.env.MY_CUSTOM_VAR == "hello"' "$proj_merge/.claude/settings.json" >/dev/null 2>&1; then
     pass "settings.json — preserved existing env var"
@@ -144,7 +144,7 @@ fi
 proj_idem="$TMPDIR_BASE/project_idem"
 mkdir -p "$proj_idem/.claude"
 echo '{"env":{"REVIEW_BOT":"my-custom-bot[bot]","CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}' > "$proj_idem/.claude/settings.json"
-HOME="$proj_idem" "$INSTALL" --project "$proj_idem" > /dev/null 2>&1
+HOME="$proj_idem" "$INSTALL" --project "$proj_idem" --agent-teams 1 > /dev/null 2>&1
 if command -v jq &>/dev/null; then
   if jq -e '.env.REVIEW_BOT == "my-custom-bot[bot]"' "$proj_idem/.claude/settings.json" >/dev/null 2>&1; then
     pass "settings.json — did not overwrite existing REVIEW_BOT"
@@ -159,7 +159,7 @@ fi
 proj_bad="$TMPDIR_BASE/project_bad"
 mkdir -p "$proj_bad/.claude"
 echo '{broken json' > "$proj_bad/.claude/settings.json"
-output=$(HOME="$proj_bad" "$INSTALL" --project "$proj_bad" 2>&1)
+output=$(HOME="$proj_bad" "$INSTALL" --project "$proj_bad" --agent-teams 1 2>&1)
 if echo "$output" | grep -q "merge failed"; then
   pass "settings.json — warned on malformed JSON"
 else
@@ -174,7 +174,7 @@ fi
 proj_array="$TMPDIR_BASE/project_array"
 mkdir -p "$proj_array/.claude"
 echo '{"env":["old","array"]}' > "$proj_array/.claude/settings.json"
-HOME="$proj_array" "$INSTALL" --project "$proj_array" > /dev/null 2>&1
+HOME="$proj_array" "$INSTALL" --project "$proj_array" --agent-teams 1 > /dev/null 2>&1
 if command -v jq &>/dev/null; then
   if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' "$proj_array/.claude/settings.json" >/dev/null 2>&1; then
     pass "settings.json — recovered from non-object .env"
@@ -183,6 +183,59 @@ if command -v jq &>/dev/null; then
   fi
 else
   pass "settings.json non-object — skipped (jq not available)"
+fi
+
+# --- Test: declining Agent Teams skips that env var ---
+proj_decline="$TMPDIR_BASE/project_decline"
+mkdir -p "$proj_decline"
+HOME="$proj_decline" "$INSTALL" --project "$proj_decline" --agent-teams 0 > /dev/null 2>&1
+if command -v jq &>/dev/null; then
+  if jq -e '.env.REVIEW_BOT' "$proj_decline/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — REVIEW_BOT set when Agent Teams declined"
+  else
+    fail "settings.json — REVIEW_BOT missing when Agent Teams declined"
+  fi
+  if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' "$proj_decline/.claude/settings.json" >/dev/null 2>&1; then
+    fail "settings.json — AGENT_TEAMS should not be set when declined"
+  else
+    pass "settings.json — AGENT_TEAMS not set when declined"
+  fi
+else
+  pass "settings.json decline — skipped (jq not available)"
+  pass "settings.json decline — skipped (jq not available)"
+fi
+
+# --- Test: disabling Agent Teams removes env var ---
+proj_disable="$TMPDIR_BASE/project_disable"
+mkdir -p "$proj_disable/.claude"
+echo '{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1","REVIEW_BOT":"copilot-pull-request-reviewer[bot]"}}' > "$proj_disable/.claude/settings.json"
+HOME="$proj_disable" "$INSTALL" --project "$proj_disable" --agent-teams 0 > /dev/null 2>&1
+if command -v jq &>/dev/null; then
+  if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' "$proj_disable/.claude/settings.json" >/dev/null 2>&1; then
+    fail "settings.json — AGENT_TEAMS should be removed after disable"
+  else
+    pass "settings.json — AGENT_TEAMS removed after disable"
+  fi
+  if jq -e '.env.REVIEW_BOT' "$proj_disable/.claude/settings.json" >/dev/null 2>&1; then
+    pass "settings.json — REVIEW_BOT preserved after Agent Teams disable"
+  else
+    fail "settings.json — REVIEW_BOT lost after Agent Teams disable"
+  fi
+else
+  pass "settings.json disable — skipped (jq not available)"
+  pass "settings.json disable — skipped (jq not available)"
+fi
+
+# --- Test: re-run shows current config ---
+output=$(HOME="$proj_settings" "$INSTALL" --project "$proj_settings" --agent-teams 1 2>&1)
+if echo "$output" | grep -q "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = 1"; then
+  pass "settings.json — re-run shows current AGENT_TEAMS"
+else
+  if command -v jq &>/dev/null; then
+    fail "settings.json — re-run should show current config"
+  else
+    pass "settings.json re-run — skipped (jq not available)"
+  fi
 fi
 
 # --- Test: graceful when jq is not available ---

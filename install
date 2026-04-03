@@ -13,6 +13,7 @@ SKILLS_SRC="$REPO_DIR/skills"
 TARGET_DIR="$HOME/.claude/skills"
 SKILL_FILTER=""
 UNINSTALL=false
+AGENT_TEAMS_FLAG=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +36,14 @@ while [[ $# -gt 0 ]]; do
     --uninstall)
       UNINSTALL=true
       shift
+      ;;
+    --agent-teams)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "Error: --agent-teams requires 1 or 0" >&2
+        exit 1
+      fi
+      AGENT_TEAMS_FLAG="$2"
+      shift 2
       ;;
     *)
       echo "Unknown option: $1" >&2
@@ -120,18 +129,73 @@ EOF
   exit 0
 fi
 
-# Build the desired env vars
-DESIRED='{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1","REVIEW_BOT":"copilot-pull-request-reviewer[bot]"}}'
-
 SETTINGS_DIR="$(dirname "$SETTINGS_FILE")"
 mkdir -p "$SETTINGS_DIR"
+
+# Read current env vars from settings.json (if it exists and is valid)
+CUR_AGENT_TEAMS=""
+CUR_REVIEW_BOT=""
+if [ -f "$SETTINGS_FILE" ] && jq -e . "$SETTINGS_FILE" >/dev/null 2>&1; then
+  CUR_AGENT_TEAMS=$(jq -r 'if (.env | type) == "object" then .env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
+  CUR_REVIEW_BOT=$(jq -r 'if (.env | type) == "object" then .env.REVIEW_BOT // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
+fi
+
+# Show current configuration
+echo ""
+echo "Settings ($SETTINGS_FILE):"
+if [ -n "$CUR_AGENT_TEAMS" ]; then
+  echo "  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = $CUR_AGENT_TEAMS"
+else
+  echo "  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = (not set)"
+fi
+if [ -n "$CUR_REVIEW_BOT" ]; then
+  echo "  REVIEW_BOT = $CUR_REVIEW_BOT"
+else
+  echo "  REVIEW_BOT = (not set, defaults to copilot-pull-request-reviewer[bot])"
+fi
+
+# Determine Agent Teams setting
+WANT_AGENT_TEAMS="$CUR_AGENT_TEAMS"
+if [ "$AGENT_TEAMS_FLAG" = "1" ]; then
+  WANT_AGENT_TEAMS="1"
+elif [ "$AGENT_TEAMS_FLAG" = "0" ]; then
+  WANT_AGENT_TEAMS=""
+elif [ -t 0 ]; then
+  if [ "$CUR_AGENT_TEAMS" = "1" ]; then
+    printf "\nAgent Teams is enabled. Disable? [y/N] "
+    read -r answer
+    case "$answer" in
+      [yY]*) WANT_AGENT_TEAMS="" ;;
+    esac
+  else
+    printf "\nEnable Agent Teams? [Y/n] "
+    read -r answer
+    case "$answer" in
+      [nN]*) WANT_AGENT_TEAMS="" ;;
+      *)     WANT_AGENT_TEAMS="1" ;;
+    esac
+  fi
+elif [ -z "$CUR_AGENT_TEAMS" ]; then
+  WANT_AGENT_TEAMS="1"
+fi
+
+# Build desired env vars based on answers
+DESIRED='{"env":{"REVIEW_BOT":"copilot-pull-request-reviewer[bot]"'
+if [ -n "$WANT_AGENT_TEAMS" ]; then
+  DESIRED+=',"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"'"$WANT_AGENT_TEAMS"'"'
+fi
+DESIRED+='}}'
+REMOVE_AGENT_TEAMS=false
+if [ -z "$WANT_AGENT_TEAMS" ] && [ -n "$CUR_AGENT_TEAMS" ]; then
+  REMOVE_AGENT_TEAMS=true
+fi
 
 # Create temp in same dir as target for atomic mv on same filesystem
 TEMP=$(mktemp "$SETTINGS_DIR/settings.json.XXXXXX")
 trap 'rm -f "$TEMP"' EXIT
 
 if [ ! -f "$SETTINGS_FILE" ]; then
-  echo "$DESIRED" | jq . > "$TEMP"
+  echo "$DESIRED" | jq '.' > "$TEMP"
   mv "$TEMP" "$SETTINGS_FILE"
   trap - EXIT
   echo "created $SETTINGS_FILE"
@@ -146,8 +210,9 @@ else
   # Merge env vars: desired as base, existing values win on conflict
   # Non-object .env is silently coerced to {} by the jq filter
   # Invalid JSON is caught by the jq failure path
-  if ! jq --argjson desired "$DESIRED" '
-    .env = ($desired.env * (if (.env | type) == "object" then .env else {} end))
+  if ! jq --argjson desired "$DESIRED" --argjson rm_teams "$REMOVE_AGENT_TEAMS" '
+    .env = ($desired.env * (if (.env | type) == "object" then .env else {} end)) |
+    if $rm_teams then del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) else . end
   ' "$SETTINGS_FILE" > "$TEMP" 2>/dev/null; then
     echo "Warning: $SETTINGS_FILE merge failed (invalid JSON?) — skipping. Add env vars manually." >&2
     rm -f "$TEMP"
