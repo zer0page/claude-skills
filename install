@@ -160,7 +160,7 @@ if [ -f "$SETTINGS_FILE" ] && jq -e . "$SETTINGS_FILE" >/dev/null 2>&1; then
   CUR_AGENT_TEAMS=$(jq -r 'if (.env | type) == "object" then .env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
   CUR_REVIEW_BOT=$(jq -r 'if (.env | type) == "object" then .env.REVIEW_BOT // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
   # Check if tmux-notify hooks are present in the groups managed by this script
-  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks | type) == "object" and ([.hooks.Stop?, .hooks.UserPromptSubmit? | if type == "array" then .[] else empty end | .hooks[]? | .command? // empty | select(test("tmux-notify\\.sh"))] | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
+  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks | type) == "object" and ([.hooks.Stop?, .hooks.UserPromptSubmit? | if type == "array" then .[] else empty end | .hooks[]? | .command? // empty | select(test("\\.claude/hooks/tmux-notify\\.sh"))] | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
 fi
 
 # Show current configuration
@@ -312,7 +312,7 @@ else
     # Helper: remove tmux-notify commands from .hooks[] arrays within each matcher entry,
     # dropping the entry entirely only if no other hooks remain
     def strip_tmux_notify: map(
-      .hooks = [(.hooks // [])[] | select((.command? // "") | test("tmux-notify\\.sh") | not)] |
+      .hooks = [(.hooks // [])[] | select((.command? // "") | test("\\.claude/hooks/tmux-notify\\.sh") | not)] |
       select((.hooks | length) > 0)
     );
     if $hooks != null then

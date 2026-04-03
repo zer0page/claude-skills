@@ -3,7 +3,7 @@
 #
 # Prepends a ❓ to the tmux window name when the agent stops (user's turn).
 # Clears when the user submits a prompt. Multi-pane safe via per-pane
-# @waiting flags (0/1), clearing the marker only when no pane is still waiting.
+# @claude_waiting flags (0/1), clearing the marker only when no pane is still waiting.
 #
 # Usage (called by Claude Code hooks, not directly):
 #   tmux-notify.sh notify   # on Stop
@@ -21,10 +21,10 @@ notify() {
 
   # Skip if already waiting (avoids redundant tmux calls on repeated Stop events).
   local cur
-  cur=$(tmux display-message -t "$pane" -p '#{@waiting}' 2>/dev/null) || exit 0
+  cur=$(tmux display-message -t "$pane" -p '#{@claude_waiting}' 2>/dev/null) || exit 0
   [ "$cur" != "1" ] || return 0
 
-  tmux set-option -p -t "$pane" @waiting 1 2>/dev/null || exit 0
+  tmux set-option -p -t "$pane" @claude_waiting 1 2>/dev/null || exit 0
 
   local win name
   win=$(tmux display-message -t "$pane" -p '#{window_id}' 2>/dev/null) || exit 0
@@ -40,10 +40,10 @@ clear_notify() {
 
   # Skip if this pane wasn't waiting (avoids unnecessary tmux calls on every prompt).
   local cur
-  cur=$(tmux display-message -t "$pane" -p '#{@waiting}' 2>/dev/null) || exit 0
+  cur=$(tmux display-message -t "$pane" -p '#{@claude_waiting}' 2>/dev/null) || exit 0
   [ "$cur" = "1" ] || return 0
 
-  tmux set-option -p -t "$pane" @waiting 0 2>/dev/null || exit 0
+  tmux set-option -p -t "$pane" @claude_waiting 0 2>/dev/null || exit 0
 
   local win name
   win=$(tmux display-message -t "$pane" -p '#{window_id}' 2>/dev/null) || exit 0
@@ -51,7 +51,7 @@ clear_notify() {
 
   # Check if any other pane in this window is still waiting.
   local waiting_flags
-  waiting_flags=$(tmux list-panes -t "$win" -F '#{@waiting}' 2>/dev/null) || exit 0
+  waiting_flags=$(tmux list-panes -t "$win" -F '#{@claude_waiting}' 2>/dev/null) || exit 0
 
   if echo "$waiting_flags" | grep -q '^1$'; then
     return 0
