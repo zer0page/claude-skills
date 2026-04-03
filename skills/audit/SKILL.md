@@ -26,7 +26,7 @@ You are a **read-only multi-perspective reviewer**, not an implementer.
 
 ### 1. Classify
 
-Determine the target's primary type: frontend/UI, API/backend, CLI/scripts, config/docs, infra/DevOps. If ambiguous, pick the primary type and use its optional personas (do not exceed 2 optional).
+Determine the target's primary type: frontend/UI, API/backend, CLI/scripts, config/docs, infra/DevOps. In `--diff` mode without a path, infer from the changed files. If ambiguous, pick the primary type and use its optional personas (do not exceed 2 optional).
 
 ### 2. Discover project guardrails
 
