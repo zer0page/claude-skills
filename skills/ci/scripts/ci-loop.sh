@@ -42,8 +42,30 @@ if [ -z "$PR" ] || [ -z "$REPO" ] || [ -z "$SHA" ]; then
   exit 1
 fi
 
+# Validate inputs (printf avoids echo interpreting -n/-e as flags)
+if ! printf '%s' "$PR" | grep -qE '^[0-9]+$'; then
+  echo '{"error":"invalid PR format"}'
+  exit 0
+fi
+if ! printf '%s' "$REPO" | grep -qE '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$'; then
+  echo '{"error":"invalid REPO format"}'
+  exit 0
+fi
+if ! printf '%s' "$SHA" | grep -qE '^[A-Fa-f0-9]{40}$'; then
+  echo '{"error":"invalid SHA format: expected full 40-character commit SHA"}'
+  exit 0
+fi
+
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
+
+# Validate bot name: alphanumeric/dots/hyphens with optional [bot] suffix
+if [ -n "$REVIEW_BOT" ]; then
+  if ! printf '%s' "$REVIEW_BOT" | grep -qE '^[a-zA-Z0-9._-]+(\[bot\])?$'; then
+    echo '{"error":"invalid review-bot format"}'
+    exit 0
+  fi
+fi
 
 # --- Build poll args ---
 POLL_ARGS=(--pr "$PR" --repo "$REPO" --sha "$SHA")
@@ -67,7 +89,7 @@ fi
 # When CI resolves, one final review check before returning.
 poll_result=""
 window_elapsed=0
-review_bot_timeout=false
+review_bot_timeout="false"
 has_bot="false"
 [ -n "$REVIEW_BOT" ] && has_bot="true"
 
@@ -84,28 +106,28 @@ while true; do
   review_state=$(echo "$poll_result" | jq -r '.review_state // empty')
   review_comment_count=$(echo "$poll_result" | jq -r '.review_comment_count // 0')
   human_count=$(echo "$poll_result" | jq '.human_comment_ids // [] | length')
-  has_comments=false
-  { [ "$review_comment_count" -gt 0 ] || [ "$human_count" -gt 0 ]; } && has_comments=true
+  has_comments="false"
+  { [ "$review_comment_count" -gt 0 ] || [ "$human_count" -gt 0 ]; } && has_comments="true"
 
   # Bot responded → clear timeout flag (bot is alive)
   if [ -n "$review_state" ]; then
-    review_bot_timeout=false
+    review_bot_timeout="false"
   fi
 
   # Bot responded with comments → return batch immediately
-  if [ -n "$review_state" ] && $has_comments; then
+  if [ -n "$review_state" ] && [ "$has_comments" = "true" ]; then
     break
   fi
 
   # 10-min window expired
   if [ $window_elapsed -ge 600 ]; then
     # Human comments accumulated → return batch
-    if $has_comments; then
+    if [ "$has_comments" = "true" ]; then
       break
     fi
     # Bot never responded → re-request, flag timeout
     if [ "$has_bot" = "true" ] && [ -z "$review_state" ]; then
-      review_bot_timeout=true
+      review_bot_timeout="true"
       gh api "repos/$OWNER/$NAME/pulls/$PR/requested_reviewers" \
         -X POST -f "reviewers[]=$REVIEW_BOT" >/dev/null 2>&1 || true
     fi
@@ -126,7 +148,7 @@ while true; do
     check_pending=$(echo "$poll_result" | jq '[.checks[] | select(.resolved == false)] | length')
     if [ "$check_pending" -eq 0 ]; then
       # CI clean — final review check
-      if $has_comments; then
+      if [ "$has_comments" = "true" ]; then
         break
       fi
       # Done if no bot configured or bot already reviewed clean.
@@ -181,8 +203,9 @@ human_id_json=$(echo "$poll_result" | jq -c '.human_comment_ids // []')
 human_ids=$(echo "$human_id_json" | jq 'length')
 
 if [ "$human_ids" -gt 0 ]; then
-  human_comment_details=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" \
-    --jq "[.[] | select(.id as \$id | $human_id_json | index(\$id)) | {id, path, body, user: .user.login}]" 2>/dev/null || echo "[]")
+  human_comment_details=$(gh api "repos/$OWNER/$NAME/pulls/$PR/comments" 2>/dev/null \
+    | jq --argjson ids "$human_id_json" \
+    '[.[] | select(.id as $id | $ids | index($id)) | {id, path, body, user: .user.login}]' 2>/dev/null || echo "[]")
 fi
 
 # --- Output ---
