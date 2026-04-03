@@ -180,7 +180,7 @@ if [ -f "$SETTINGS_FILE" ] && jq -e . "$SETTINGS_FILE" >/dev/null 2>&1; then
   CUR_AGENT_TEAMS=$(jq -r 'if (.env | type) == "object" then .env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
   CUR_REVIEW_BOT=$(jq -r 'if (.env | type) == "object" then .env.REVIEW_BOT // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
   # Check if tmux-notify hooks are present
-  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks.Stop // [] | map(select(.hooks[]?.command | test("tmux-notify"))) | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
+  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks.Stop // [] | map(select(.hooks // [] | any(.command? // "" | test("tmux-notify\\.sh")))) | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
 fi
 
 # Show current configuration
@@ -241,7 +241,7 @@ elif [ -t 0 ]; then
       [yY]*) WANT_TMUX_NOTIFY="" ;;
     esac
   else
-    printf "\nEnable tmux pane notifications? [Y/n] "
+    printf "\nEnable tmux pane notifications? (adds ❓ to window name when waiting for input) [Y/n] "
     read -r answer
     case "$answer" in
       [nN]*) WANT_TMUX_NOTIFY="" ;;
@@ -263,18 +263,15 @@ if [ -z "$WANT_AGENT_TEAMS" ] && [ -n "$CUR_AGENT_TEAMS" ]; then
   REMOVE_AGENT_TEAMS=true
 fi
 
-# Build hooks JSON for tmux-notify
+# Build hooks JSON for tmux-notify (use jq --arg to safely escape $HOME)
 HOOKS_CMD="$HOME/.claude/hooks/tmux-notify.sh"
 DESIRED_HOOKS='null'
 REMOVE_TMUX_NOTIFY=false
 if [ -n "$WANT_TMUX_NOTIFY" ]; then
-  DESIRED_HOOKS=$(cat <<HOOKEOF
-{
-  "Stop": [{"matcher": "", "hooks": [{"type": "command", "command": "$HOOKS_CMD notify"}]}],
-  "UserPromptSubmit": [{"matcher": "", "hooks": [{"type": "command", "command": "$HOOKS_CMD clear"}]}]
-}
-HOOKEOF
-)
+  DESIRED_HOOKS=$(jq -n --arg cmd "$HOOKS_CMD" '{
+    "Stop": [{"matcher": "", "hooks": [{"type": "command", "command": ($cmd + " notify")}]}],
+    "UserPromptSubmit": [{"matcher": "", "hooks": [{"type": "command", "command": ($cmd + " clear")}]}]
+  }')
 elif [ -n "$CUR_TMUX_NOTIFY" ]; then
   REMOVE_TMUX_NOTIFY=true
 fi
@@ -308,23 +305,20 @@ else
     .env = ($desired.env * (if (.env | type) == "object" then .env else {} end)) |
     if $rm_teams then del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) else . end |
     # Merge hooks: add tmux-notify entries without clobbering user hooks
+    # Helper: filter out entries where any hook command matches tmux-notify.sh
+    def without_tmux_notify: map(select(.hooks // [] | any(.command? // "" | test("tmux-notify\\.sh")) | not));
     if $hooks != null then
       .hooks = ((.hooks // {}) |
-        # Remove any existing tmux-notify entries before adding new ones
-        (.Stop = [(.Stop // [] | map(select(.hooks[0].command | test("tmux-notify") | not)))[] ]) |
-        (.UserPromptSubmit = [(.UserPromptSubmit // [] | map(select(.hooks[0].command | test("tmux-notify") | not)))[] ]) |
-        # Add the new entries
-        (.Stop = .Stop + $hooks.Stop) |
-        (.UserPromptSubmit = .UserPromptSubmit + $hooks.UserPromptSubmit) |
-        # Clean up empty arrays
+        (.Stop = ((.Stop // []) | without_tmux_notify) + $hooks.Stop) |
+        (.UserPromptSubmit = ((.UserPromptSubmit // []) | without_tmux_notify) + $hooks.UserPromptSubmit) |
         if (.Stop | length) == 0 then del(.Stop) else . end |
         if (.UserPromptSubmit | length) == 0 then del(.UserPromptSubmit) else . end
       )
     elif $rm_notify then
       if .hooks then
         .hooks = (.hooks |
-          (.Stop = [(.Stop // [] | map(select(.hooks[0].command | test("tmux-notify") | not)))[] ]) |
-          (.UserPromptSubmit = [(.UserPromptSubmit // [] | map(select(.hooks[0].command | test("tmux-notify") | not)))[] ]) |
+          (.Stop = ((.Stop // []) | without_tmux_notify)) |
+          (.UserPromptSubmit = ((.UserPromptSubmit // []) | without_tmux_notify)) |
           if (.Stop | length) == 0 then del(.Stop) else . end |
           if (.UserPromptSubmit | length) == 0 then del(.UserPromptSubmit) else . end
         ) |
