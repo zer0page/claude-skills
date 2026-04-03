@@ -11,7 +11,7 @@ End-to-end workflow from idea to merged PR. Orchestrates `/brainstorming`, `/aud
 
 Prevents: skipping phases, committing to main, implementing without a plan, shipping without review.
 
-`--quick` skips audit phases (4 and 6). All other phases are mandatory.
+`--quick` skips audit phases (4 and 6). Phase 4 also has a user gate (audit, skip, or refine).
 
 ## Operating Mode
 
@@ -55,7 +55,7 @@ _Skipped with `--quick`._
    - **Skip audit** — proceed directly to Phase 5 (implementation).
    - **Refine plan** — return to Phase 2 step 3 (enter plan mode, revise plan, then Phase 3 re-approval and repeat Phase 4).
 2. If run audit: `/audit --core --no-handoff [primary-target-directory]` from the plan.
-3. Fix findings. If plan scope changes, return to Phase 3 for re-approval.
+3. If run audit: fix findings. If plan scope changes, return to Phase 3 for re-approval.
 
 ### Phase 5: Implement
 
