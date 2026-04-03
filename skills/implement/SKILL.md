@@ -75,12 +75,12 @@ Name the worktree from the description (lowercase, hyphens, max 30 chars). If co
 ### Phase 8: Ship
 
 1. Push and create draft PR.
-2. Invoke `/ci --max 10` via the Skill tool. Do not inline CI logic — the CI skill and its scripts handle all detection and polling.
+2. Invoke the `/ci --max 10` skill command. Do not run CI scripts directly or inline CI logic — the `/ci` skill and its scripts handle all detection and polling.
 3. `/ci` presents completion options:
    - **Mark ready** → remove draft status, proceed to Phase 9.
    - **Clean up and reopen** → squash commits, force-push, close and reopen PR. Re-fetch new PR URL, proceed to Phase 9.
    - **Merge and close** _(only if `merge_state` is `CLEAN`)_ → follow `/ci` Completion merge steps, then `ExitWorktree remove` with `discard_changes: true` (squash SHA differs from local), `git pull` (ExitWorktree returns to main). Skip Phase 9.
-4. If merge fails (state != `MERGED`): keep worktree, report error with PR URL, stop. User must resolve blocking checks or conflicts before retry.
+4. If merge fails (PR `state` from `gh pr view --json state` is not `MERGED` during `/ci` completion verification): keep worktree, report error with PR URL, stop. User must resolve blocking checks or conflicts before retry.
 
 ### Phase 9: Gate — user decides
 
