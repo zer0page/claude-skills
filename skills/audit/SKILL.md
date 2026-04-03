@@ -56,6 +56,8 @@ Available optional personas:
 
 `--core`: run only the 3 core personas. Useful for lighter pre-implementation checks.
 
+Personas may be merged when concerns overlap (e.g., Usability + Beginner into a single agent) to reduce cost without losing coverage.
+
 ### 4. Spawn personas as Explore agents
 
 Launch selected personas in parallel. Each persona: 3–5 issues, file:line, severity (quick-fix / medium / large), concrete fix.
