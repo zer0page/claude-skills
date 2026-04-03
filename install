@@ -91,6 +91,71 @@ done
 
 if $UNINSTALL; then
   echo "done (uninstalled)"
+  exit 0
+fi
+
+echo "done (target: $TARGET_DIR)"
+
+# --- Configure ~/.claude/settings.json ---
+
+SETTINGS_FILE="$HOME/.claude/settings.json"
+
+if ! command -v jq &>/dev/null; then
+  cat >&2 <<'EOF'
+
+Warning: jq not found — settings.json configuration skipped.
+
+To complete setup:
+  1. Install jq (brew install jq, apt-get install jq, etc.)
+  2. Re-run the same install command (safe to re-run; won't overwrite existing settings)
+  Or manually create ~/.claude/settings.json:
+
+  {
+    "env": {
+      "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+      "REVIEW_BOT": "copilot-pull-request-reviewer[bot]"
+    }
+  }
+EOF
+  exit 0
+fi
+
+# Build the desired env vars
+DESIRED='{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1","REVIEW_BOT":"copilot-pull-request-reviewer[bot]"}}'
+
+SETTINGS_DIR="$(dirname "$SETTINGS_FILE")"
+mkdir -p "$SETTINGS_DIR"
+
+# Create temp in same dir as target for atomic mv on same filesystem
+TEMP=$(mktemp "$SETTINGS_DIR/settings.json.XXXXXX")
+trap 'rm -f "$TEMP"' EXIT
+
+if [ ! -f "$SETTINGS_FILE" ]; then
+  echo "$DESIRED" | jq . > "$TEMP"
+  mv "$TEMP" "$SETTINGS_FILE"
+  trap - EXIT
+  echo "created $SETTINGS_FILE"
 else
-  echo "done (target: $TARGET_DIR)"
+  # Preserve existing file permissions (portable across macOS/Linux)
+  if [ "$(uname)" = "Darwin" ]; then
+    chmod "$(stat -f '%Lp' "$SETTINGS_FILE")" "$TEMP" 2>/dev/null || true
+  else
+    chmod --reference="$SETTINGS_FILE" "$TEMP" 2>/dev/null || true
+  fi
+
+  # Merge env vars: desired as base, existing values win on conflict
+  # Non-object .env is silently coerced to {} by the jq filter
+  # Invalid JSON is caught by the jq failure path
+  if ! jq --argjson desired "$DESIRED" '
+    .env = ($desired.env * (if (.env | type) == "object" then .env else {} end))
+  ' "$SETTINGS_FILE" > "$TEMP" 2>/dev/null; then
+    echo "Warning: $SETTINGS_FILE merge failed (invalid JSON?) — skipping. Add env vars manually." >&2
+    rm -f "$TEMP"
+    trap - EXIT
+    exit 0
+  fi
+
+  mv "$TEMP" "$SETTINGS_FILE"
+  trap - EXIT
+  echo "updated $SETTINGS_FILE"
 fi

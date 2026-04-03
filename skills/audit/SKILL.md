@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Read-only multi-perspective code audit. Spawns adaptive reviewer personas (core + optional based on target type) then aggregates findings as a PM. Use when reviewing, evaluating, critiquing, auditing, inspecting, examining, analyzing, or assessing PRs, code changes, diffs, implementations, or code quality.
+description: Read-only multi-perspective code audit. Spawns adaptive reviewer personas as Agent Team teammates (core + optional based on target type) then aggregates findings as a PM. Use when reviewing, evaluating, critiquing, auditing, inspecting, examining, analyzing, or assessing PRs, code changes, diffs, implementations, or code quality.
 ---
 
 # /audit [path] [--diff [base]] [--no-handoff] [--core]
@@ -56,11 +56,13 @@ Available optional personas:
 
 `--core`: run only the 3 core personas. Useful for lighter pre-implementation checks.
 
-When two optional personas have overlapping concerns, they may share a single Explore agent that covers both perspectives.
+When two optional personas have overlapping concerns, they may share a single teammate that covers both perspectives.
 
-### 4. Spawn personas as Explore agents
+### 4. Spawn personas as Agent Team teammates
 
-Launch selected personas in parallel. Each persona: 3–5 issues, file:line, severity (quick-fix / medium / large), concrete fix.
+Create an Agent Team. Spawn each selected persona as a teammate with its review scope and the read-only constraint. Each teammate: independently reviews the target, produces 3–5 issues with file:line, severity (quick-fix / medium / large), and concrete fix. Teammates are read-only — no edits, writes, or state changes.
+
+If Agent Teams is unavailable, fall back to Explore agents with the same persona instructions.
 
 ### 5. Aggregate as PM
 

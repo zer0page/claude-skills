@@ -1,23 +1,53 @@
-# Example: Skills Config in CLAUDE.md
+# Example: Skills Config via settings.json
 
-Add these to your project's `CLAUDE.md` to customize skill behavior.
+Configure skill behavior in `~/.claude/settings.json`. The `./install` script sets defaults automatically.
 
-## Using a custom review bot
+## Review bot
 
-```markdown
-review_bot: my-company-reviewer[bot]
+Set the `REVIEW_BOT` env var to control which bot `/ci` requests for automated reviews.
+
+### Default (set by install)
+
+```json
+{
+  "env": {
+    "REVIEW_BOT": "copilot-pull-request-reviewer[bot]"
+  }
+}
 ```
 
-The `/ci` skill reads this and uses `my-company-reviewer[bot]` instead of Copilot for automated review requests and monitoring.
+### Custom review bot
 
-## CI-only mode (no review bot)
+```json
+{
+  "env": {
+    "REVIEW_BOT": "my-company-reviewer[bot]"
+  }
+}
+```
 
-```markdown
-review_bot: none
+### CI-only mode (no review bot)
+
+```json
+{
+  "env": {
+    "REVIEW_BOT": "skip"
+  }
+}
 ```
 
 Skips all automated review request/wait steps. Only monitors CI pass/fail.
 
-## Default behavior (no config needed)
+## Agent Teams
 
-If your `CLAUDE.md` doesn't mention `review_bot`, `/ci` defaults to `copilot-pull-request-reviewer[bot]`.
+Required for `/audit` to spawn reviewer personas as Agent Team teammates.
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+Both env vars are set automatically by `./install`.
