@@ -123,17 +123,30 @@ fi
 # Build the desired env vars
 DESIRED='{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1","REVIEW_BOT":"copilot-pull-request-reviewer[bot]"}}'
 
+SETTINGS_DIR="$(dirname "$SETTINGS_FILE")"
+mkdir -p "$SETTINGS_DIR"
+
+# Create temp in same dir as target for atomic mv on same filesystem
+TEMP=$(mktemp "$SETTINGS_DIR/settings.json.XXXXXX")
+trap 'rm -f "$TEMP"' EXIT
+
 if [ ! -f "$SETTINGS_FILE" ]; then
-  mkdir -p "$(dirname "$SETTINGS_FILE")"
-  echo "$DESIRED" | jq . > "$SETTINGS_FILE"
+  echo "$DESIRED" | jq . > "$TEMP"
+  mv "$TEMP" "$SETTINGS_FILE"
+  trap - EXIT
   echo "created $SETTINGS_FILE"
 else
+  # Preserve existing file permissions
+  # Preserve existing file permissions (portable across macOS/Linux)
+  if [ "$(uname)" = "Darwin" ]; then
+    chmod "$(stat -f '%Lp' "$SETTINGS_FILE")" "$TEMP" 2>/dev/null || true
+  else
+    chmod --reference="$SETTINGS_FILE" "$TEMP" 2>/dev/null || true
+  fi
+
   # Merge env vars: desired as base, existing values win on conflict
   # Non-object .env is silently coerced to {} by the jq filter
   # Invalid JSON is caught by the jq failure path
-  TEMP=$(mktemp)
-  trap 'rm -f "$TEMP"' EXIT
-
   if ! jq --argjson desired "$DESIRED" '
     .env = ($desired.env * (if (.env | type) == "object" then .env else {} end))
   ' "$SETTINGS_FILE" > "$TEMP" 2>/dev/null; then

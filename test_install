@@ -14,10 +14,14 @@ trap cleanup EXIT
 pass() { passed=$((passed + 1)); echo "  PASS: $1"; }
 fail() { failed=$((failed + 1)); echo "  FAIL: $1"; }
 
+# Use fake HOME for all tests to avoid touching real ~/.claude/settings.json
+FAKE_HOME="$TMPDIR_BASE/fake_home"
+mkdir -p "$FAKE_HOME"
+
 # --- Test: install all skills into a project directory ---
 proj="$TMPDIR_BASE/project1"
 mkdir -p "$proj"
-"$INSTALL" --project "$proj" > /dev/null
+HOME="$FAKE_HOME" "$INSTALL" --project "$proj" > /dev/null
 
 for skill in "$SCRIPT_DIR"/skills/*/; do
   name=$(basename "$skill")
@@ -30,7 +34,7 @@ for skill in "$SCRIPT_DIR"/skills/*/; do
 done
 
 # --- Test: idempotent reinstall ---
-output=$("$INSTALL" --project "$proj" 2>&1)
+output=$(HOME="$FAKE_HOME" "$INSTALL" --project "$proj" 2>&1)
 if echo "$output" | grep -q "already linked"; then
   pass "idempotent reinstall"
 else
@@ -40,7 +44,7 @@ fi
 # --- Test: --skill filter installs only one ---
 proj2="$TMPDIR_BASE/project2"
 mkdir -p "$proj2"
-"$INSTALL" --project "$proj2" --skill audit > /dev/null
+HOME="$FAKE_HOME" "$INSTALL" --project "$proj2" --skill audit > /dev/null
 
 if [ -L "$proj2/.claude/skills/audit" ]; then
   pass "--skill filter — audit installed"
@@ -56,7 +60,7 @@ else
 fi
 
 # --- Test: uninstall removes symlinks ---
-"$INSTALL" --project "$proj" --uninstall > /dev/null
+HOME="$FAKE_HOME" "$INSTALL" --project "$proj" --uninstall > /dev/null
 remaining=$(find "$proj/.claude/skills" -maxdepth 1 -type l 2>/dev/null | wc -l | tr -d ' ')
 if [ "$remaining" -eq 0 ]; then
   pass "uninstall — all symlinks removed"
@@ -67,7 +71,7 @@ fi
 # --- Test: skips non-symlink targets ---
 proj3="$TMPDIR_BASE/project3"
 mkdir -p "$proj3/.claude/skills/audit"
-output=$("$INSTALL" --project "$proj3" --skill audit 2>&1)
+output=$(HOME="$FAKE_HOME" "$INSTALL" --project "$proj3" --skill audit 2>&1)
 if echo "$output" | grep -q "skipped"; then
   pass "skip non-symlink — reported skipped"
 else
@@ -75,14 +79,14 @@ else
 fi
 
 # --- Test: --skill rejects unknown skill name ---
-if "$INSTALL" --project "$TMPDIR_BASE" --skill nonexistent 2>/dev/null; then
+if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --skill nonexistent 2>/dev/null; then
   fail "--skill unknown — should have been rejected"
 else
   pass "--skill unknown — rejected"
 fi
 
 # --- Test: unknown option exits with error ---
-if "$INSTALL" --bogus 2>/dev/null; then
+if HOME="$FAKE_HOME" "$INSTALL" --bogus 2>/dev/null; then
   fail "unknown option — should have exited 1"
 else
   pass "unknown option — rejected"
