@@ -41,7 +41,7 @@ if ! echo "$REPO" | grep -qE '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$'; then
   printf '{"error":"invalid REPO format"}\n'
   exit 0
 fi
-if ! echo "$SHA" | grep -qE '^[a-f0-9]+$'; then
+if ! echo "$SHA" | grep -qE '^[A-Fa-f0-9]{7,40}$'; then
   printf '{"error":"invalid SHA format"}\n'
   exit 0
 fi

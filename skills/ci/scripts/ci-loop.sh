@@ -42,6 +42,20 @@ if [ -z "$PR" ] || [ -z "$REPO" ] || [ -z "$SHA" ]; then
   exit 1
 fi
 
+# Validate inputs
+if ! echo "$PR" | grep -qE '^[0-9]+$'; then
+  echo '{"error":"invalid PR format"}'
+  exit 0
+fi
+if ! echo "$REPO" | grep -qE '^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$'; then
+  echo '{"error":"invalid REPO format"}'
+  exit 0
+fi
+if ! echo "$SHA" | grep -qE '^[A-Fa-f0-9]{7,40}$'; then
+  echo '{"error":"invalid SHA format"}'
+  exit 0
+fi
+
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
