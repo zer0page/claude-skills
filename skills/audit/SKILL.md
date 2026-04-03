@@ -97,4 +97,4 @@ Unless `--no-handoff` is passed, use `AskUserQuestion` to confirm findings are u
 
 - Always discover project guardrails before spawning personas.
 - A finding from any single persona with large severity is included unchanged.
-- Read-only is non-negotiable. If any step attempts file I/O, abort.
+- Read-only is non-negotiable. If any step attempts file writes or system state changes, abort.
