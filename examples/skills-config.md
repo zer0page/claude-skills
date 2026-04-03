@@ -51,3 +51,38 @@ Required for `/audit` to spawn reviewer personas as Agent Team teammates.
 ```
 
 Both env vars are set automatically by `./install`.
+
+## tmux pane notifications
+
+Prepends ❓ to the tmux window name when Claude is waiting for your input. Clears when you respond. Multi-pane safe — the marker stays until all panes in a window are cleared.
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/tmux-notify.sh notify"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/tmux-notify.sh clear"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Set automatically by `./install`; the example above uses `$HOME` for readability, but `./install` writes an expanded absolute path into `settings.json`. Disable with `./install --tmux-notify 0`.

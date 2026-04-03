@@ -6,14 +6,18 @@
 #   ./install --project /path     # Symlink into /path/.claude/skills/ (project-local)
 #   ./install --skill NAME        # Install just one skill
 #   ./install --uninstall         # Remove symlinks created by this script
+#   ./install --tmux-notify 0|1  # Enable/disable tmux pane notifications
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_SRC="$REPO_DIR/skills"
+HOOKS_SRC="$REPO_DIR/hooks"
 TARGET_DIR="$HOME/.claude/skills"
+HOOKS_DIR="$HOME/.claude/hooks"
 SKILL_FILTER=""
 UNINSTALL=false
 AGENT_TEAMS_FLAG=""
+TMUX_NOTIFY_FLAG=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -43,6 +47,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       AGENT_TEAMS_FLAG="$2"
+      shift 2
+      ;;
+    --tmux-notify)
+      if [[ $# -lt 2 ]] || [[ "$2" != "0" && "$2" != "1" ]]; then
+        echo "Error: --tmux-notify requires 0 or 1" >&2
+        exit 1
+      fi
+      TMUX_NOTIFY_FLAG="$2"
       shift 2
       ;;
     *)
@@ -98,7 +110,15 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   fi
 done
 
+# --- Install hook scripts ---
+HOOKS_TARGET="$HOOKS_DIR/tmux-notify.sh"
+
 if $UNINSTALL; then
+  if [ -L "$HOOKS_TARGET" ] && [[ "$(readlink "$HOOKS_TARGET")" == "$HOOKS_SRC/"* ]]; then
+    rm "$HOOKS_TARGET"
+    echo "  removed $HOOKS_TARGET"
+    echo "  note: run './install --tmux-notify 0' to also remove hook entries from settings.json" >&2
+  fi
   echo "done (uninstalled)"
   exit 0
 fi
@@ -132,12 +152,15 @@ fi
 SETTINGS_DIR="$(dirname "$SETTINGS_FILE")"
 mkdir -p "$SETTINGS_DIR"
 
-# Read current env vars from settings.json (if it exists and is valid)
+# Read current values from settings.json (if it exists and is valid)
 CUR_AGENT_TEAMS=""
 CUR_REVIEW_BOT=""
+CUR_TMUX_NOTIFY=""
 if [ -f "$SETTINGS_FILE" ] && jq -e . "$SETTINGS_FILE" >/dev/null 2>&1; then
   CUR_AGENT_TEAMS=$(jq -r 'if (.env | type) == "object" then .env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
   CUR_REVIEW_BOT=$(jq -r 'if (.env | type) == "object" then .env.REVIEW_BOT // "" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
+  # Check if tmux-notify hooks are present in the groups managed by this script
+  CUR_TMUX_NOTIFY=$(jq -r 'if (.hooks | type) == "object" and ([.hooks.Stop?, .hooks.UserPromptSubmit? | if type == "array" then .[] else empty end | .hooks[]? | .command? // empty | select(test("\\.claude/hooks/tmux-notify\\.sh"))] | length) > 0 then "1" else "" end' "$SETTINGS_FILE" 2>/dev/null || echo "")
 fi
 
 # Show current configuration
@@ -152,6 +175,11 @@ if [ -n "$CUR_REVIEW_BOT" ]; then
   echo "  REVIEW_BOT = $CUR_REVIEW_BOT"
 else
   echo "  REVIEW_BOT = (not set, defaults to copilot-pull-request-reviewer[bot])"
+fi
+if [ -n "$CUR_TMUX_NOTIFY" ]; then
+  echo "  tmux-notify hooks = enabled"
+else
+  echo "  tmux-notify hooks = (not set)"
 fi
 
 # Determine Agent Teams setting
@@ -179,6 +207,56 @@ elif [ -z "$CUR_AGENT_TEAMS" ]; then
   WANT_AGENT_TEAMS="1"
 fi
 
+# Determine tmux notification setting
+WANT_TMUX_NOTIFY="$CUR_TMUX_NOTIFY"
+if [ "$TMUX_NOTIFY_FLAG" = "1" ]; then
+  WANT_TMUX_NOTIFY="1"
+elif [ "$TMUX_NOTIFY_FLAG" = "0" ]; then
+  WANT_TMUX_NOTIFY=""
+elif [ -t 0 ]; then
+  if [ -n "$CUR_TMUX_NOTIFY" ]; then
+    printf "\ntmux pane notifications are enabled. Disable? [y/N] "
+    read -r answer
+    case "$answer" in
+      [yY]*) WANT_TMUX_NOTIFY="" ;;
+    esac
+  else
+    printf "\nEnable tmux pane notifications? (adds ❓ to window name when waiting for input) [Y/n] "
+    read -r answer
+    case "$answer" in
+      [nN]*) WANT_TMUX_NOTIFY="" ;;
+      *)     WANT_TMUX_NOTIFY="1" ;;
+    esac
+  fi
+elif [ -z "$CUR_TMUX_NOTIFY" ]; then
+  WANT_TMUX_NOTIFY="1"
+fi
+
+# Reconcile hook symlink based on final WANT_TMUX_NOTIFY
+if [ -n "$WANT_TMUX_NOTIFY" ] && [ -d "$HOOKS_SRC" ]; then
+  mkdir -p "$HOOKS_DIR"
+  chmod 700 "$HOOKS_DIR" 2>/dev/null || true
+
+  if [ -L "$HOOKS_TARGET" ]; then
+    existing=$(readlink "$HOOKS_TARGET")
+    if [ "$existing" = "$HOOKS_SRC/tmux-notify.sh" ]; then
+      echo "  tmux-notify.sh (already linked)"
+    else
+      echo "  tmux-notify.sh: updating link (was $existing)"
+      ln -sf "$HOOKS_SRC/tmux-notify.sh" "$HOOKS_TARGET"
+    fi
+  elif [ -e "$HOOKS_TARGET" ]; then
+    echo "  tmux-notify.sh: skipped (exists and is not a symlink — hooks not configured)"
+    WANT_TMUX_NOTIFY=""
+  else
+    ln -s "$HOOKS_SRC/tmux-notify.sh" "$HOOKS_TARGET"
+    echo "  tmux-notify.sh → $HOOKS_SRC/tmux-notify.sh"
+  fi
+elif [ -z "$WANT_TMUX_NOTIFY" ] && [ -L "$HOOKS_TARGET" ] && [[ "$(readlink "$HOOKS_TARGET")" == "$HOOKS_SRC/"* ]]; then
+  rm "$HOOKS_TARGET"
+  echo "  removed $HOOKS_TARGET"
+fi
+
 # Build desired env vars based on answers
 DESIRED='{"env":{"REVIEW_BOT":"copilot-pull-request-reviewer[bot]"'
 if [ -n "$WANT_AGENT_TEAMS" ]; then
@@ -190,12 +268,29 @@ if [ -z "$WANT_AGENT_TEAMS" ] && [ -n "$CUR_AGENT_TEAMS" ]; then
   REMOVE_AGENT_TEAMS=true
 fi
 
+# Build hooks JSON for tmux-notify (use jq --arg to safely escape $HOME)
+HOOKS_CMD="$HOME/.claude/hooks/tmux-notify.sh"
+DESIRED_HOOKS='null'
+REMOVE_TMUX_NOTIFY=false
+if [ -n "$WANT_TMUX_NOTIFY" ]; then
+  DESIRED_HOOKS=$(jq -n --arg cmd "$HOOKS_CMD" '{
+    "Stop": [{"matcher": "", "hooks": [{"type": "command", "command": ($cmd + " notify")}]}],
+    "UserPromptSubmit": [{"matcher": "", "hooks": [{"type": "command", "command": ($cmd + " clear")}]}]
+  }')
+elif [ -n "$CUR_TMUX_NOTIFY" ]; then
+  REMOVE_TMUX_NOTIFY=true
+fi
+
 # Create temp in same dir as target for atomic mv on same filesystem
 TEMP=$(mktemp "$SETTINGS_DIR/settings.json.XXXXXX")
 trap 'rm -f "$TEMP"' EXIT
 
 if [ ! -f "$SETTINGS_FILE" ]; then
-  echo "$DESIRED" | jq '.' > "$TEMP"
+  if [ "$DESIRED_HOOKS" != "null" ]; then
+    echo "$DESIRED" | jq --argjson hooks "$DESIRED_HOOKS" '. + {hooks: $hooks}' > "$TEMP"
+  else
+    echo "$DESIRED" | jq '.' > "$TEMP"
+  fi
   mv "$TEMP" "$SETTINGS_FILE"
   trap - EXIT
   echo "created $SETTINGS_FILE"
@@ -210,11 +305,37 @@ else
   # Merge env vars: desired as base, existing values win on conflict
   # Non-object .env is silently coerced to {} by the jq filter
   # Invalid JSON is caught by the jq failure path
-  if ! jq --argjson desired "$DESIRED" --argjson rm_teams "$REMOVE_AGENT_TEAMS" '
+  if ! jq --argjson desired "$DESIRED" --argjson rm_teams "$REMOVE_AGENT_TEAMS" \
+       --argjson hooks "$DESIRED_HOOKS" --argjson rm_notify "$REMOVE_TMUX_NOTIFY" '
     .env = ($desired.env * (if (.env | type) == "object" then .env else {} end)) |
-    if $rm_teams then del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) else . end
+    if $rm_teams then del(.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) else . end |
+    # Merge hooks: add/remove tmux-notify commands without clobbering user hooks
+    # Helper: remove tmux-notify commands from .hooks[] arrays within each matcher entry,
+    # dropping the entry entirely only if no other hooks remain
+    def strip_tmux_notify: map(
+      .hooks = [(.hooks // [])[] | select((.command? // "") | test("\\.claude/hooks/tmux-notify\\.sh") | not)] |
+      select((.hooks | length) > 0)
+    );
+    if $hooks != null then
+      .hooks = ((if (.hooks | type) == "object" then .hooks else {} end) |
+        (.Stop = ((.Stop // []) | strip_tmux_notify) + $hooks.Stop) |
+        (.UserPromptSubmit = ((.UserPromptSubmit // []) | strip_tmux_notify) + $hooks.UserPromptSubmit) |
+        if (.Stop | length) == 0 then del(.Stop) else . end |
+        if (.UserPromptSubmit | length) == 0 then del(.UserPromptSubmit) else . end
+      )
+    elif $rm_notify then
+      if (.hooks | type) == "object" then
+        .hooks = (.hooks |
+          (.Stop = ((.Stop // []) | strip_tmux_notify)) |
+          (.UserPromptSubmit = ((.UserPromptSubmit // []) | strip_tmux_notify)) |
+          if (.Stop | length) == 0 then del(.Stop) else . end |
+          if (.UserPromptSubmit | length) == 0 then del(.UserPromptSubmit) else . end
+        ) |
+        if (.hooks | length) == 0 then del(.hooks) else . end
+      else . end
+    else . end
   ' "$SETTINGS_FILE" > "$TEMP" 2>/dev/null; then
-    echo "Warning: $SETTINGS_FILE merge failed (invalid JSON?) — skipping. Add env vars manually." >&2
+    echo "Warning: $SETTINGS_FILE merge failed (invalid JSON?) — skipping. Add env vars and configure hooks manually." >&2
     rm -f "$TEMP"
     trap - EXIT
     exit 0
