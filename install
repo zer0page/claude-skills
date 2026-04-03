@@ -246,7 +246,8 @@ if [ -n "$WANT_TMUX_NOTIFY" ] && [ -d "$HOOKS_SRC" ]; then
       ln -sf "$HOOKS_SRC/tmux-notify.sh" "$HOOKS_TARGET"
     fi
   elif [ -e "$HOOKS_TARGET" ]; then
-    echo "  tmux-notify.sh: skipped (exists and is not a symlink)"
+    echo "  tmux-notify.sh: skipped (exists and is not a symlink — hooks not configured)"
+    WANT_TMUX_NOTIFY=""
   else
     ln -s "$HOOKS_SRC/tmux-notify.sh" "$HOOKS_TARGET"
     echo "  tmux-notify.sh → $HOOKS_SRC/tmux-notify.sh"
