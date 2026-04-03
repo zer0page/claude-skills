@@ -29,7 +29,7 @@ Name the worktree from the description (lowercase, hyphens, max 30 chars). If co
    - **/brainstorming** (default) — single-agent structured dialogue.
    - **/brainstorm-team** — multi-perspective Agent Teams exploration.
    Otherwise, run `/brainstorming` directly.
-2. Run the selected brainstorming skill to explore the idea. Both modes produce a durable Markdown design summary (understanding, assumptions, decision log).
+2. Run the selected brainstorming skill to explore the idea. Both modes produce a design summary (understanding, assumptions, decision log) presented in-chat.
 3. `AskUserQuestion` for additional context before planning.
 
 ### Phase 2: Plan

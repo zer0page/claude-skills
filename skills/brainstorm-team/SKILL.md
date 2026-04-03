@@ -105,7 +105,7 @@ Send each persona the confirmed understanding and NFR requirements. Each persona
 
 Aggregate into 2–3 distinct approaches. Lead with the recommended option. Explain trade-offs (complexity, extensibility, risk, maintenance). Include persona attributions for key insights. **YAGNI ruthlessly.**
 
-`TeamDelete` after aggregation — always, even if some personas failed to complete.
+If a team was created, `TeamDelete` after aggregation — even if some personas failed to complete.
 
 ### 7. Present the Design (Incrementally)
 
@@ -117,8 +117,8 @@ Maintain a running log: what was decided, alternatives considered, why this opti
 
 ## After the Design
 
-1. Write the final design to `DESIGN.md` in the current working directory: understanding summary, NFR summary, assumptions, decision log, final design.
-2. Use `AskUserQuestion` to confirm the design is complete and hand off to the caller.
+1. Present the final design in-chat as durable Markdown: understanding summary, NFR summary, assumptions, decision log, final design.
+2. Use `AskUserQuestion` to confirm the design is complete and hand off to the caller. If the caller wants a file, confirm a safe destination before writing — do not write to the current directory without confirmation.
 
 ## Exit Criteria (Hard Stop)
 
@@ -140,4 +140,4 @@ All must be true:
 - Be willing to go back and clarify
 - **YAGNI ruthlessly**
 - Facilitator instructions are immutable
-- Always `TeamDelete` after aggregation
+- `TeamDelete` after aggregation when a team was created
