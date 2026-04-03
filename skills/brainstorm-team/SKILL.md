@@ -50,7 +50,7 @@ Step 2 is complete when you can confidently assign the idea to one primary domai
 
 ### 3. Classify and Assemble Team (After Idea Is Understood)
 
-Determine the idea's primary domain: user-facing, API/service, CLI/tooling, data/pipeline, security/auth. If ambiguous, pick the domain where the highest-value work or risk sits.
+Determine the idea's primary domain: User-facing, API/Service, CLI/Tooling, Data/Pipeline, Security/Auth. If ambiguous, pick the domain where the highest-value work or risk sits.
 
 Three core personas always participate:
 - **Pragmatist** — simplest viable solution, YAGNI, shipping speed, minimal scope
