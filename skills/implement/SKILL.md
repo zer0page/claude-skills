@@ -9,7 +9,7 @@ description: Full development workflow — brainstorm, plan, audit, simplify, bu
 
 End-to-end workflow from idea to merged PR. Orchestrates `/brainstorming`, `/audit`, `/simplify`, and `/ci` into sequential phases.
 
-Prevents: skipping phases, committing to main, implementing without a plan, shipping without review.
+Prevents: silently skipping phases, committing to main, implementing without a plan, shipping without review.
 
 `--quick` skips audit phases (4 and 6). Phase 4 also has a user gate (audit, skip, or refine).
 
@@ -99,7 +99,7 @@ _Skipped with `--quick`._
 
 ## Key Principles
 
-- All phases are mandatory and sequential. Phases 4 and 6 are skipped with `--quick`; Phase 4 may also be skipped or deferred by user choice at its gate. Never reorder. Never skip automatically.
+- Follow phases in order. Never reorder. Skipping is allowed only via `--quick` (phases 4 and 6) or explicit user choice at the Phase 4 gate. Never skip automatically.
 - Never commit directly to main.
 - Always gate on user approval before implementation and merge.
 - Only modify files identified in the plan.
