@@ -123,27 +123,6 @@ if $UNINSTALL; then
   exit 0
 fi
 
-# Symlink hook scripts (skip if explicitly disabled via --tmux-notify 0)
-if [ -d "$HOOKS_SRC" ] && [ "$TMUX_NOTIFY_FLAG" != "0" ]; then
-  mkdir -p "$HOOKS_DIR"
-  chmod 700 "$HOOKS_DIR" 2>/dev/null || true
-
-  if [ -L "$HOOKS_TARGET" ]; then
-    existing=$(readlink "$HOOKS_TARGET")
-    if [ "$existing" = "$HOOKS_SRC/tmux-notify.sh" ]; then
-      echo "  tmux-notify.sh (already linked)"
-    else
-      echo "  tmux-notify.sh: updating link (was $existing)"
-      ln -sf "$HOOKS_SRC/tmux-notify.sh" "$HOOKS_TARGET"
-    fi
-  elif [ -e "$HOOKS_TARGET" ]; then
-    echo "  tmux-notify.sh: skipped (exists and is not a symlink)"
-  else
-    ln -s "$HOOKS_SRC/tmux-notify.sh" "$HOOKS_TARGET"
-    echo "  tmux-notify.sh → $HOOKS_SRC/tmux-notify.sh"
-  fi
-fi
-
 echo "done (target: $TARGET_DIR)"
 
 # --- Configure ~/.claude/settings.json ---
@@ -251,6 +230,30 @@ elif [ -t 0 ]; then
   fi
 elif [ -z "$CUR_TMUX_NOTIFY" ]; then
   WANT_TMUX_NOTIFY="1"
+fi
+
+# Reconcile hook symlink based on final WANT_TMUX_NOTIFY
+if [ -n "$WANT_TMUX_NOTIFY" ] && [ -d "$HOOKS_SRC" ]; then
+  mkdir -p "$HOOKS_DIR"
+  chmod 700 "$HOOKS_DIR" 2>/dev/null || true
+
+  if [ -L "$HOOKS_TARGET" ]; then
+    existing=$(readlink "$HOOKS_TARGET")
+    if [ "$existing" = "$HOOKS_SRC/tmux-notify.sh" ]; then
+      echo "  tmux-notify.sh (already linked)"
+    else
+      echo "  tmux-notify.sh: updating link (was $existing)"
+      ln -sf "$HOOKS_SRC/tmux-notify.sh" "$HOOKS_TARGET"
+    fi
+  elif [ -e "$HOOKS_TARGET" ]; then
+    echo "  tmux-notify.sh: skipped (exists and is not a symlink)"
+  else
+    ln -s "$HOOKS_SRC/tmux-notify.sh" "$HOOKS_TARGET"
+    echo "  tmux-notify.sh → $HOOKS_SRC/tmux-notify.sh"
+  fi
+elif [ -z "$WANT_TMUX_NOTIFY" ] && [ -L "$HOOKS_TARGET" ] && [[ "$(readlink "$HOOKS_TARGET")" == "$HOOKS_SRC/"* ]]; then
+  rm "$HOOKS_TARGET"
+  echo "  removed $HOOKS_TARGET"
 fi
 
 # Build desired env vars based on answers

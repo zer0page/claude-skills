@@ -362,6 +362,21 @@ else
   pass "hooks — symlink removed after uninstall"
 fi
 
+# --- Test: --tmux-notify 0 removes managed symlink ---
+proj_rmsym="$TMPDIR_BASE/project_rmsym"
+mkdir -p "$proj_rmsym"
+HOME="$proj_rmsym" "$INSTALL" --project "$proj_rmsym" --agent-teams 1 --tmux-notify 1 > /dev/null 2>&1
+if [ -L "$proj_rmsym/.claude/hooks/tmux-notify.sh" ]; then
+  HOME="$proj_rmsym" "$INSTALL" --project "$proj_rmsym" --agent-teams 1 --tmux-notify 0 > /dev/null 2>&1
+  if [ -L "$proj_rmsym/.claude/hooks/tmux-notify.sh" ]; then
+    fail "hooks — symlink should be removed after --tmux-notify 0"
+  else
+    pass "hooks — symlink removed after --tmux-notify 0"
+  fi
+else
+  fail "hooks — symlink not created for --tmux-notify 0 test"
+fi
+
 # --- Test: --tmux-notify rejects invalid values ---
 if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --tmux-notify 2 2>/dev/null; then
   fail "--tmux-notify 2 — should have been rejected"

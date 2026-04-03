@@ -3,7 +3,7 @@
 #
 # Prepends a ❓ to the tmux window name when the agent stops (user's turn).
 # Clears when the user submits a prompt. Multi-pane safe via per-pane
-# @waiting user option (reference counting).
+# @waiting flags (0/1), clearing the marker only when no pane is still waiting.
 #
 # Usage (called by Claude Code hooks, not directly):
 #   tmux-notify.sh notify   # on Stop
