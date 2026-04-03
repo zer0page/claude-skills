@@ -25,9 +25,10 @@ Name the worktree from the description (lowercase, hyphens, max 30 chars). If co
 
 ### Phase 1: Brainstorm
 
-1. `AskUserQuestion` to choose brainstorm mode:
+1. If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set, `AskUserQuestion` to choose brainstorm mode:
    - **/brainstorming** (default) — single-agent structured dialogue.
-   - **/brainstorm-team** — multi-perspective Agent Teams exploration (requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`).
+   - **/brainstorm-team** — multi-perspective Agent Teams exploration.
+   Otherwise, run `/brainstorming` directly.
 2. Run the selected brainstorming skill to explore the idea. Both modes produce a design summary (understanding, assumptions, decision log) written to `DESIGN.md`.
 3. `AskUserQuestion` for additional context before planning.
 

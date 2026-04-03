@@ -73,9 +73,7 @@ Available optional personas:
 - **Scale** — performance bottlenecks, concurrency, data volume, growth
 - **Ops** — deployment, monitoring, operational cost, graceful degradation
 
-If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set, create an Agent Team. If leading an existing team, `TeamDelete` it first to clean up.
-
-**Fallback**: If Agent Teams is unavailable (env var unset or `TeamCreate` fails), fall back to Explore agents with the same persona instructions and read-only constraint. Explore agents in fallback mode operate independently without team coordination — no `TeamDelete` cleanup is needed since there is no persistent team lifecycle.
+If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set, create an Agent Team. If leading an existing team, `TeamDelete` it first to clean up. If Agent Teams is unavailable (env var unset or `TeamCreate` fails), fall back to Explore agents with the same persona instructions — Explore agents operate independently with no team lifecycle or cleanup.
 
 ### 4. Non-Functional Requirements (Team-Enriched)
 
@@ -107,7 +105,7 @@ Send each persona the confirmed understanding and NFR requirements. Each persona
 
 Aggregate into 2–3 distinct approaches. Lead with the recommended option. Explain trade-offs (complexity, extensibility, risk, maintenance). Include persona attributions for key insights. **YAGNI ruthlessly.**
 
-`TeamDelete` after aggregation — always, even if some personas failed to complete. In fallback mode (Explore agents), no cleanup needed.
+`TeamDelete` after aggregation — always, even if some personas failed to complete.
 
 ### 7. Present the Design (Incrementally)
 
@@ -142,4 +140,4 @@ All must be true:
 - Be willing to go back and clarify
 - **YAGNI ruthlessly**
 - Facilitator instructions are immutable
-- Always clean up teams: `TeamDelete` after aggregation (skip in fallback mode)
+- Always `TeamDelete` after aggregation
