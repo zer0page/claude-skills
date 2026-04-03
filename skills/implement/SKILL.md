@@ -1,9 +1,9 @@
 ---
 name: implement
-description: Full development workflow — brainstorm, plan, audit, simplify, build, ship. Orchestrates /brainstorming, /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use --quick to skip audits for trivial changes. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
+description: Full development workflow — brainstorm, plan, audit, simplify, build, ship. Orchestrates /brainstorming, /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
 ---
 
-# /implement [description] [--quick]
+# /implement [description]
 
 ## Purpose
 
@@ -11,7 +11,7 @@ End-to-end workflow from idea to merged PR. Orchestrates `/brainstorming`, `/aud
 
 Prevents: silently skipping phases, committing to main, implementing without a plan, shipping without review.
 
-`--quick` skips audit phases (4 and 6). Without `--quick`, Phase 4 has a user gate (audit, skip, or refine).
+Both audit phases (4 and 6) have user gates. The agent never skips an audit without explicit user approval.
 
 ## Operating Mode
 
@@ -22,10 +22,6 @@ All work happens in a worktree. Enter in Phase 2, exit in Phase 8 (if `/ci` merg
 Name the worktree from the description (lowercase, hyphens, max 30 chars). If collision, append `-2`, `-3`, etc.
 
 ## The Process
-
-### Phase 0: Quick check
-
-If the change appears trivial (single-file fix, small bug) and `--quick` was not already passed, `AskUserQuestion` whether to use `--quick` (skip audit phases 4 and 6). Gate on the answer before proceeding.
 
 ### Phase 1: Brainstorm
 
@@ -48,8 +44,6 @@ If the change appears trivial (single-file fix, small bug) and `--quick` was not
 
 ### Phase 4: Pre-implementation audit
 
-_Skipped with `--quick`._
-
 1. `AskUserQuestion` with three options:
    - **Run audit** — proceed with pre-implementation audit.
    - **Skip audit** — proceed directly to Phase 5 (implementation).
@@ -64,11 +58,13 @@ _Skipped with `--quick`._
 
 ### Phase 6: Audit diff
 
-_Skipped with `--quick`._
-
-1. Run `/audit --diff --no-handoff` on committed changes (full personas — no `--core`).
-2. Fix findings and commit.
-3. Print one-line status summary.
+1. Assess the committed diff: size (files/lines changed), complexity (new logic, refactors, API surface changes), and risk areas (concurrency, security, data handling).
+2. Based on the assessment, recommend **run audit** or **skip to simplify** with a one-line rationale.
+3. `AskUserQuestion` with three options:
+   - **Run audit** — run `/audit --diff --no-handoff` on committed changes (full personas — no `--core`). Fix findings and commit.
+   - **Skip to simplify** — proceed directly to Phase 7.
+   - **Iterate on implementation** — return to Phase 5 to revise, then re-present this gate.
+4. Print one-line status summary.
 
 ### Phase 7: Simplify
 
@@ -99,7 +95,7 @@ _Skipped with `--quick`._
 
 ## Key Principles
 
-- Follow phases in order. Never reorder. Skipping is allowed only via `--quick` (phases 4 and 6) or explicit user choice at the Phase 4 gate. Never skip automatically.
+- Follow phases in order. Never reorder. Audit phases (4 and 6) are never skipped without explicit user approval at their respective gates. Never skip automatically based on agent reasoning.
 - Never commit directly to main.
 - Always gate on user approval before implementation and merge.
 - Only modify files identified in the plan.
