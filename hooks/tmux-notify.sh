@@ -78,11 +78,21 @@ notify() {
   win=$(tmux display-message -t "$pane" -p '#{window_id}' 2>/dev/null) || exit 0
   name=$(tmux display-message -t "$pane" -p '#{window_name}' 2>/dev/null) || exit 0
 
-  if ! has_marker "$name" "$MARKER" "$POSITION"; then
-    tmux rename-window -t "$win" -- "$(add_marker "$name")" 2>/dev/null || true
-    # Persist applied marker/position so clear works even if config changes.
-    tmux set-option -w -t "$win" @claude_applied_marker "$MARKER" 2>/dev/null || true
-    tmux set-option -w -t "$win" @claude_applied_position "$POSITION" 2>/dev/null || true
+  # Honor existing per-window marker if already applied (avoids double markers on config change).
+  local active_marker active_position
+  active_marker=$(tmux show-option -wqv -t "$win" @claude_applied_marker 2>/dev/null) || true
+  active_position=$(tmux show-option -wqv -t "$win" @claude_applied_position 2>/dev/null) || true
+  active_marker="${active_marker:-$MARKER}"
+  active_position="${active_position:-$POSITION}"
+
+  if ! has_marker "$name" "$active_marker" "$active_position"; then
+    if [[ "$active_position" == "append" ]]; then
+      tmux rename-window -t "$win" -- "${name}${active_marker}" 2>/dev/null || true
+    else
+      tmux rename-window -t "$win" -- "${active_marker}${name}" 2>/dev/null || true
+    fi
+    tmux set-option -w -t "$win" @claude_applied_marker "$active_marker" 2>/dev/null || true
+    tmux set-option -w -t "$win" @claude_applied_position "$active_position" 2>/dev/null || true
   fi
 }
 
