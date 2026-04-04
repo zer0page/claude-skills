@@ -31,15 +31,6 @@ POSITION="${POSITION:-$DEFAULT_POSITION}"
 
 ACTION="${1:-}"
 
-add_marker() {
-  local name="$1"
-  if [[ "$POSITION" == "append" ]]; then
-    echo "${name}${MARKER}"
-  else
-    echo "${MARKER}${name}"
-  fi
-}
-
 has_marker() {
   local name="$1" marker="$2" pos="$3"
   local marker_len=${#marker}
@@ -125,11 +116,23 @@ clear_notify() {
   applied_position=$(tmux show-option -wqv -t "$win" @claude_applied_position 2>/dev/null) || true
   applied_position="${applied_position:-$POSITION}"
 
-  if has_marker "$name" "$applied_marker" "$applied_position"; then
-    tmux rename-window -t "$win" -- "$(strip_marker "$name" "$applied_marker" "$applied_position")" 2>/dev/null || true
-    tmux set-option -wu -t "$win" @claude_applied_marker 2>/dev/null || true
-    tmux set-option -wu -t "$win" @claude_applied_position 2>/dev/null || true
+  # Try applied marker, then legacy formats (❓ with space, ❔, ❓).
+  local strip_m="$applied_marker" strip_p="$applied_position"
+  if ! has_marker "$name" "$strip_m" "$strip_p"; then
+    local legacy found=false
+    for legacy in "❓ :prepend" "❔:prepend" "❓:prepend"; do
+      local lm="${legacy%%:*}" lp="${legacy##*:}"
+      if has_marker "$name" "$lm" "$lp"; then
+        strip_m="$lm" strip_p="$lp" found=true
+        break
+      fi
+    done
+    $found || { return 0; }
   fi
+
+  tmux rename-window -t "$win" -- "$(strip_marker "$name" "$strip_m" "$strip_p")" 2>/dev/null || true
+  tmux set-option -wu -t "$win" @claude_applied_marker 2>/dev/null || true
+  tmux set-option -wu -t "$win" @claude_applied_position 2>/dev/null || true
 }
 
 case "$ACTION" in
