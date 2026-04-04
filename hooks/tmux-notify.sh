@@ -41,20 +41,26 @@ add_marker() {
 }
 
 has_marker() {
-  local name="$1"
-  if [[ "$POSITION" == "append" ]]; then
-    [[ "$name" == *"${MARKER}" ]]
+  local name="$1" marker="$2" pos="$3"
+  local marker_len=${#marker}
+  [ "$marker_len" -gt 0 ] || return 1
+  [ "${#name}" -ge "$marker_len" ] || return 1
+
+  if [[ "$pos" == "append" ]]; then
+    [[ "${name: -marker_len}" == "$marker" ]]
   else
-    [[ "$name" == "${MARKER}"* ]]
+    [[ "${name:0:marker_len}" == "$marker" ]]
   fi
 }
 
 strip_marker() {
-  local name="$1"
-  if [[ "$POSITION" == "append" ]]; then
-    echo "${name%"${MARKER}"}"
+  local name="$1" marker="$2" pos="$3"
+  local marker_len=${#marker}
+
+  if [[ "$pos" == "append" ]]; then
+    echo "${name:0:${#name}-marker_len}"
   else
-    echo "${name#"${MARKER}"}"
+    echo "${name:marker_len}"
   fi
 }
 
@@ -72,8 +78,11 @@ notify() {
   win=$(tmux display-message -t "$pane" -p '#{window_id}' 2>/dev/null) || exit 0
   name=$(tmux display-message -t "$pane" -p '#{window_name}' 2>/dev/null) || exit 0
 
-  if ! has_marker "$name"; then
+  if ! has_marker "$name" "$MARKER" "$POSITION"; then
     tmux rename-window -t "$win" -- "$(add_marker "$name")" 2>/dev/null || true
+    # Persist applied marker/position so clear works even if config changes.
+    tmux set-option -w -t "$win" @claude_applied_marker "$MARKER" 2>/dev/null || true
+    tmux set-option -w -t "$win" @claude_applied_position "$POSITION" 2>/dev/null || true
   fi
 }
 
@@ -99,8 +108,17 @@ clear_notify() {
     return 0
   fi
 
-  if has_marker "$name"; then
-    tmux rename-window -t "$win" -- "$(strip_marker "$name")" 2>/dev/null || true
+  # Use the marker/position that was applied (falls back to current config).
+  local applied_marker applied_position
+  applied_marker=$(tmux show-option -wqv -t "$win" @claude_applied_marker 2>/dev/null) || true
+  applied_marker="${applied_marker:-$MARKER}"
+  applied_position=$(tmux show-option -wqv -t "$win" @claude_applied_position 2>/dev/null) || true
+  applied_position="${applied_position:-$POSITION}"
+
+  if has_marker "$name" "$applied_marker" "$applied_position"; then
+    tmux rename-window -t "$win" -- "$(strip_marker "$name" "$applied_marker" "$applied_position")" 2>/dev/null || true
+    tmux set-option -wu -t "$win" @claude_applied_marker 2>/dev/null || true
+    tmux set-option -wu -t "$win" @claude_applied_position 2>/dev/null || true
   fi
 }
 
