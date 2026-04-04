@@ -92,7 +92,7 @@ Set automatically by `./install`; the example above uses `$HOME` for readability
 Configure via tmux global options:
 
 ```bash
-# Change the marker (default: ‣)
+# Change the marker (default: +)
 tmux set -g @claude_notify_marker "🔄"
 
 # Append instead of prepend (default: prepend)
