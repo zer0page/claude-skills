@@ -221,7 +221,7 @@ elif [ -t 0 ]; then
       [yY]*) WANT_TMUX_NOTIFY="" ;;
     esac
   else
-    printf "\nEnable tmux pane notifications? (adds ❓ to window name when waiting for input) [Y/n] "
+    printf "\nEnable tmux pane notifications? (adds a marker to window name when waiting for input) [Y/n] "
     read -r answer
     case "$answer" in
       [nN]*) WANT_TMUX_NOTIFY="" ;;
