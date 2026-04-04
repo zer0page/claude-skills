@@ -6,7 +6,7 @@
 # @claude_waiting flags (0/1), clearing the marker only when no pane is still waiting.
 #
 # Configuration (tmux global options):
-#   @claude_notify_marker   — emoji/string to use (default: ‣)
+#   @claude_notify_marker   — emoji/string to use (default: +)
 #   @claude_notify_position — "prepend" or "append" (default: prepend)
 #
 # Example:
@@ -109,12 +109,11 @@ clear_notify() {
     return 0
   fi
 
-  # Use the marker/position that was applied (falls back to current config).
+  # Only strip if per-window applied state exists (avoids stripping markers we didn't add).
   local applied_marker applied_position
   applied_marker=$(tmux show-option -wqv -t "$win" @claude_applied_marker 2>/dev/null) || true
-  applied_marker="${applied_marker:-$MARKER}"
   applied_position=$(tmux show-option -wqv -t "$win" @claude_applied_position 2>/dev/null) || true
-  applied_position="${applied_position:-$POSITION}"
+  [ -n "$applied_marker" ] || return 0
 
   if ! has_marker "$name" "$applied_marker" "$applied_position"; then
     return 0
