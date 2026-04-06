@@ -50,13 +50,14 @@ Run `{{SKILL_DIR}}/scripts/ci-loop.sh` with `--pr`, `--repo`, `--sha SHA` (full 
 Read the JSON result:
 
 1. `sha_match == false` → `git pull`, recompute SHA, restart from step 1.
-2. `error` present → return to step 1. Errors are transient — always retry.
-3. `review_bot_timeout == true` → mention to user, restart from step 1.
+2. `error` present → inspect the error text. If it indicates invalid inputs (SHA, PR, REPO), auth/permissions, or failure to fetch data, **stop and report to the user**. Only retry clearly transient failures from step 1. After 3 consecutive retries for the same error, stop and report.
+3. `review_bot_timeout == true` → mention to user, restart from step 1. After 3 consecutive timeouts, stop and report so user can decide.
 4. `review_comments` or `human_comment_details` non-empty → fix comments (step 3).
 5. Any check with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
 6. All clean + no comments, but `$REVIEW_BOT` is not `skip` and `review_state` is null/empty → **not done**. Re-request bot via `gh api repos/{owner}/{name}/pulls/{pr}/requested_reviewers -X POST -f "reviewers[]=$REVIEW_BOT"`, restart step 1.
-7. `checks` array empty (no CI configured) → `AskUserQuestion`: warn "no CI checks detected", ask whether to proceed to step 6 or wait.
-8. All clean + review satisfied (`$REVIEW_BOT` is `skip` OR `review_state` is non-null) → **done → step 6**.
+7. All clean + `$REVIEW_BOT` is not `skip` and `review_state == "CHANGES_REQUESTED"` → **not done**. Treat as actionable feedback: fix requested changes, then restart from step 1.
+8. `checks` array empty (no CI configured) → `AskUserQuestion`: warn "no CI checks detected", ask whether to proceed to step 6 or wait.
+9. All clean + review satisfied (`$REVIEW_BOT` is `skip` OR (`review_state` is non-null and not `CHANGES_REQUESTED`)) → **done → step 6**.
 
 ### 3. Fix
 
@@ -91,7 +92,7 @@ Use `merge_state` from last poll. `AskUserQuestion` with options:
    1. `gh pr ready` if still draft.
    2. `gh pr merge --squash` (no `--delete-branch` — fails in worktrees).
    3. Verify `MERGED` via `gh pr view --json state` — if not, stop and report error.
-   4. Delete remote branch: `git push origin --delete BRANCH` (ignore if auto-deleted).
+   4. Delete remote branch: `git push origin --delete BRANCH` (assumes `origin` remote; ignore if auto-deleted).
 
 If not `CLEAN`: note the state (`DRAFT`, `BLOCKED`, `DIRTY`, `BEHIND`, `UNSTABLE`).
 
