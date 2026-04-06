@@ -51,7 +51,7 @@ Read the JSON result:
 
 1. `sha_match == false` → `git pull`, recompute SHA, restart from step 1.
 2. `error` present → inspect the error text. If it indicates invalid inputs (SHA, PR, REPO), auth/permissions, or failure to fetch data, **stop and report to the user**. Only retry clearly transient failures from step 1. After 3 consecutive retries for the same error, stop and report.
-3. `review_bot_timeout == true` → mention to user, restart from step 1. After 3 consecutive timeouts, stop and report so user can decide.
+3. `review_bot_timeout == true` → informational only (ci-loop.sh already re-requested the bot). Mention to user, then continue evaluating remaining fields.
 4. `review_comments` or `human_comment_details` non-empty → fix comments (step 3).
 5. Any check with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
 6. All clean + no comments, but `$REVIEW_BOT` is not `skip` and `review_state` is null/empty → **not done**. Re-request bot via `gh api repos/{owner}/{name}/pulls/{pr}/requested_reviewers -X POST -f "reviewers[]=$REVIEW_BOT"`, restart step 1.
