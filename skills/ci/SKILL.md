@@ -33,7 +33,7 @@ Before starting: resolve `BRANCH`, `PR`, `REPO`, `OWNER`, `NAME`, `ALLOWED_FILES
 
 If any value cannot be resolved, stop and report the error.
 
-**No remote or no PR**: Skip the fix loop and jump to step 6.
+**No remote or no PR**: Stop and report that `/ci` requires a remote-backed PR. Instruct the user to push and create the PR first, then rerun `/ci`.
 
 ## The Process
 
@@ -81,7 +81,7 @@ Last attempt → fix + commit + push, then one final poll (step 1 — no more fi
 
 ### 6. Completion
 
-**Pre-check (Hard Gate)**: If `$REVIEW_BOT` is not `skip` and `review_state` is null or empty — **STOP**. Warn user the bot never responded, re-request, return to step 1.
+**Pre-check (Hard Gate)**: If `$REVIEW_BOT` is not `skip` and `review_state` is null or empty, and max attempts has not been reached — **STOP**. Warn user the bot never responded, re-request, return to step 1. If max attempts reached, warn and proceed to `AskUserQuestion` anyway.
 
 Use `merge_state` from last poll. `AskUserQuestion` with options:
 
@@ -97,11 +97,9 @@ If not `CLEAN`: note the state (`DRAFT`, `BLOCKED`, `DIRTY`, `BEHIND`, `UNSTABLE
 
 ## Exit Criteria (Hard Stop)
 
-All must be true:
-- ci-loop.sh ran at least once (or no remote/PR)
-- All checks `SUCCESS`/`NEUTRAL` on latest commit
-- Bot reviewed clean (no actionable comments) on latest commit
-- OR max attempts reached
+Exit when either:
+- **Success**: ci-loop.sh ran, all checks `SUCCESS`/`NEUTRAL`, bot reviewed clean (no actionable comments) on latest commit
+- **Max attempts reached**: proceeded through all N attempts — warn user and present step 6 options regardless of CI/review state
 
 ## Key Principles (Non-Negotiable)
 
