@@ -54,10 +54,9 @@ Read the JSON result:
 3. `review_bot_timeout == true` → informational only (ci-loop.sh already re-requested the bot). Mention to user, then continue evaluating remaining fields.
 4. `review_comments` or `human_comment_details` non-empty → fix comments (step 3).
 5. Any check with `resolved: true` and `state` not `SUCCESS`/`NEUTRAL` → fix CI (step 3).
-6. All clean + no comments, but `$REVIEW_BOT` is not `skip` and `review_state` is null/empty → **not done**. Re-request bot via `gh api repos/{owner}/{name}/pulls/{pr}/requested_reviewers -X POST -f "reviewers[]=$REVIEW_BOT"`, restart step 1.
-7. All clean + `$REVIEW_BOT` is not `skip` and `review_state == "CHANGES_REQUESTED"` → **not done**. Treat as actionable feedback: fix requested changes, then restart from step 1.
-8. `checks` array empty (no CI configured) → `AskUserQuestion`: warn "no CI checks detected", ask whether to proceed to step 6 or wait.
-9. All clean + review satisfied (`$REVIEW_BOT` is `skip` OR (`review_state` is non-null and not `CHANGES_REQUESTED`)) → **done → step 6**.
+6. All clean + `$REVIEW_BOT` is not `skip` and `review_state == "CHANGES_REQUESTED"` → **not done**. Treat as actionable feedback: fix requested changes, then restart from step 1.
+7. `checks` array empty (no CI configured) → `AskUserQuestion`: warn "no CI checks detected", ask whether to proceed to step 6 or wait.
+8. All clean + review satisfied (`$REVIEW_BOT` is `skip` OR (`review_state` is non-null and not `CHANGES_REQUESTED`)) → **done → step 6**.
 
 ### 3. Fix
 
@@ -81,8 +80,6 @@ Not last attempt → return to step 1. Do not skip step 1.
 Last attempt → fix + commit + push, then one final poll (step 1 — no more fixes) to get actual CI/review state, then step 6.
 
 ### 6. Completion
-
-**Pre-check (Hard Gate)**: If `$REVIEW_BOT` is not `skip` and `review_state` is null or empty, and max attempts has not been reached — **STOP**. Warn user the bot never responded, re-request, return to step 1. If max attempts reached, warn and proceed to `AskUserQuestion` anyway.
 
 Use `merge_state` from last poll. `AskUserQuestion` with options:
 
