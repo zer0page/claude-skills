@@ -60,7 +60,7 @@ When two optional personas have overlapping concerns, they may share a single te
 
 ### 4. Review core perspectives
 
-Check Codex readiness via `/codex:setup` — available if the `ready` field is `true`. If `/codex:setup` is unavailable or errors, treat as Codex unavailable. Emit review mode status.
+Check Codex readiness via `/codex:setup` — available only if the `ready` field is `true`. Any other result (`ready: false`, error, or command unavailable) means Codex unavailable. Emit review mode status.
 
 **When Codex is ready**, run both in parallel:
 - `/codex:review --wait` — covers Craft/quality + Expert. Scope: `--diff` → `--base main`; `--diff <base>` → `--base <base>`; path target → omit scope flags (Codex defaults to working tree, constrain to target path in the review prompt).
