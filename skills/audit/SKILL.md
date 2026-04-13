@@ -60,10 +60,10 @@ When two optional personas have overlapping concerns, they may share a single te
 
 ### 4. Review core perspectives
 
-Check Codex readiness via `/codex:setup` — available if the `ready` field is `true`. Emit review mode status.
+Check Codex readiness via `/codex:setup` — available if the `ready` field is `true`. If `/codex:setup` is unavailable or errors, treat as Codex unavailable. Emit review mode status.
 
 **When Codex is ready**, run both in parallel:
-- `/codex:review --wait` — covers Craft/quality + Expert. Map `--diff` → `--base main --scope branch`; `--diff <base>` → `--base <base> --scope branch`; path target → `--scope working-tree` (include the target path in the review prompt to constrain scope).
+- `/codex:review --wait` — covers Craft/quality + Expert. Scope: `--diff` → `--base main`; `--diff <base>` → `--base <base>`; path target → omit scope flags (Codex defaults to working tree, constrain to target path in the review prompt).
 - `/codex:adversarial-review --wait "focus on security: threats, validation, injection, auth, trust boundaries"` — covers Security adversary. Same scope mapping.
 - On `/codex:review` failure: warn, spawn both Craft/quality and Expert as subagents. On `/codex:adversarial-review` failure: warn, spawn Security adversary as subagent.
 
@@ -79,7 +79,7 @@ Skip if `--core`. Spawn optional personas as subagents using the same subagent a
 
 ### 6. Aggregate as PM
 
-When Codex was used, normalize before dedup: attribute findings as `Codex (Craft/Expert)` or `Codex (Security)`, map severity `critical`/`high` → `large`, `medium` → `medium`, `low` → `quick-fix`.
+When Codex was used, normalize before dedup: attribute findings as `Codex (Craft/Expert)` or `Codex (Security)`, map severity `critical`/`high` → `large`, `medium` → `medium`, `low` → `quick-fix`. Unknown or unrecognized severities default to `quick-fix`.
 
 Dedupe by root cause — a finding flagged by any single source is included. Use the highest severity across sources, never average. "Flagged By" lists all contributing sources. Output:
 
