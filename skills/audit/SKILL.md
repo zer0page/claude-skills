@@ -1,13 +1,13 @@
 ---
 name: audit
-description: Read-only multi-perspective code audit. Spawns adaptive reviewer personas as Agent Team teammates (core + optional based on target type) then aggregates findings as a PM. Use when reviewing, evaluating, critiquing, auditing, inspecting, examining, analyzing, or assessing PRs, code changes, diffs, implementations, or code quality.
+description: Read-only multi-perspective code audit. Uses Codex review for core perspectives when available, otherwise spawns adaptive reviewer personas (core + optional based on target type) then aggregates findings as a PM. Use when reviewing, evaluating, critiquing, auditing, inspecting, examining, analyzing, or assessing PRs, code changes, diffs, implementations, or code quality.
 ---
 
 # /audit [path] [--diff [base]] [--no-handoff] [--core]
 
 ## Purpose
 
-Multi-perspective code audit that spawns parallel reviewers tailored to the target type, then aggregates as a PM.
+Multi-perspective code audit. Uses `/codex:review` and `/codex:adversarial-review` for core perspectives when Codex is available, otherwise spawns parallel reviewers tailored to the target type. Aggregates as a PM.
 
 Prevents: single-perspective bias, missed edge cases, unchecked security assumptions, architectural drift.
 
@@ -58,15 +58,30 @@ Available optional personas:
 
 When two optional personas have overlapping concerns, they may share a single teammate that covers both perspectives.
 
-### 4. Spawn personas as Agent Team teammates
+### 4. Review core perspectives
+
+Check Codex readiness via `/codex:setup` — available only if the `ready` field is `true`. Any other result (`ready: false`, error, or command unavailable) means Codex unavailable. Emit review mode status.
+
+**When Codex is ready**, run both in parallel:
+- `/codex:review --wait` — covers Craft/quality + Expert. Scope: `--diff` → `--base main`; `--diff <base>` → `--base <base>`; path target → omit scope flags (Codex defaults to working tree, constrain to target path in the review prompt).
+- `/codex:adversarial-review --wait "focus on security: threats, validation, injection, auth, trust boundaries"` — covers Security adversary. Same scope mapping.
+- On `/codex:review` failure: warn, spawn both Craft/quality and Expert as subagents. On `/codex:adversarial-review` failure: warn, spawn Security adversary as subagent.
+
+**When Codex is unavailable** (or as fallback on failure), spawn core personas as subagents:
 
 If leading an existing team, `TeamDelete` it first to clean up. Then create an Agent Team. Spawn each selected persona as a teammate with its review scope and the read-only constraint. Each teammate: independently reviews the target, produces 3–5 issues with file:line, severity (quick-fix / medium / large), and concrete fix. Teammates are read-only — no edits, writes, or state changes. Shut down all teammates and `TeamDelete` after aggregation.
 
 If Agent Teams is unavailable, fall back to Explore agents with the same persona instructions.
 
-### 5. Aggregate as PM
+### 5. Spawn optional personas
 
-Dedupe by root cause — a finding flagged by any single persona is included. Use the highest severity across personas, never average. "Flagged By" lists all contributing personas. Output:
+Skip if `--core`. Spawn optional personas as subagents using the same subagent approach above.
+
+### 6. Aggregate as PM
+
+When Codex was used, normalize before dedup: attribute findings as `Codex (Craft/Expert)` or `Codex (Security)`, map severity `critical`/`high` → `large`, `medium` → `medium`, `low` → `quick-fix`. Unknown or unrecognized severities default to `quick-fix`.
+
+Dedupe by root cause — a finding flagged by any single source is included. Use the highest severity across sources, never average. "Flagged By" lists all contributing sources. Output:
 
 - Priority table
 - Guardrail violations (if any)
@@ -86,7 +101,7 @@ Table first. Details on request.
 
 ## Exit Criteria
 
-- All selected personas have completed review
+- All selected perspectives have completed review (Codex or subagent)
 - Findings deduplicated and prioritized
 - Priority table generated
 - Handoff complete (or table returned if `--no-handoff`)
