@@ -63,9 +63,9 @@ When two optional personas have overlapping concerns, they may share a single te
 Check Codex readiness via `/codex:setup` — available if `ready === true`. Emit review mode status.
 
 **When Codex is ready**, run both in parallel:
-- `/codex:review --wait` — covers Craft/quality + Expert. Map `--diff [base]` → `--base [base] --scope branch`; path target → `--scope working-tree`.
-- `/codex:adversarial-review --wait "focus on security: threats, validation, injection, auth, trust boundaries"` — covers Security adversary.
-- On failure: warn, fall back to subagents for the failed perspective only.
+- `/codex:review --wait` — covers Craft/quality + Expert. Map `--diff` → `--base main --scope branch`; `--diff <base>` → `--base <base> --scope branch`; path target → `--scope working-tree` (include the target path in the review prompt to constrain scope).
+- `/codex:adversarial-review --wait "focus on security: threats, validation, injection, auth, trust boundaries"` — covers Security adversary. Same scope mapping.
+- On `/codex:review` failure: warn, spawn both Craft/quality and Expert as subagents. On `/codex:adversarial-review` failure: warn, spawn Security adversary as subagent.
 
 **When Codex is unavailable** (or as fallback on failure), spawn core personas as subagents:
 
