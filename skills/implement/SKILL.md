@@ -29,15 +29,17 @@ When invoking superpowers sub-skills, pass explicit overrides:
 
 If a sub-skill ignores an override (announces a chained skill we did not authorize, or pushes/creates a PR before Phase 6), stop, report the conflict by name, and ask the user how to recover. Do not attempt to undo.
 
+Cleanliness checks (Phase 4 step 4, Phase 6 step 1) refer to working-tree changes **outside** `docs/superpowers/specs/` and `docs/superpowers/plans/`. Spec and plan files in those paths are intentionally untracked scratch artifacts (per their no-commit overrides) and do not block progression.
+
 ## The Process
 
 ### Phase 1: Worktree + Brainstorm
 
 1. `EnterWorktree` with slugified description. Capture the worktree's starting commit SHA as `BASE_SHA` (used in Phase 4 to verify implementation commits).
 2. Configure git identity if empty (try `git log -1`, fall back to global config, abort if still empty).
-3. Ensure `docs/superpowers/specs/` exists inside the worktree (`mkdir -p` if needed).
-4. Invoke `superpowers:brainstorming` with the user's description and the override above. Instruct it to write the spec to `docs/superpowers/specs/YYYY-MM-DD-<slug>-design.md` inside the worktree.
-5. On return, confirm the spec file exists at the canonical path (`docs/superpowers/specs/YYYY-MM-DD-<slug>-design.md`). If brainstorming wrote it elsewhere, move it to the canonical path and update the held spec path. If brainstorming returned only in-chat content without writing a file, write it yourself to the canonical path. If brainstorming announced `superpowers:writing-plans` (auto-chained despite the override), apply the Operating Mode failure-detection rule — stop and report.
+3. Ensure `docs/superpowers/specs/` exists inside the worktree (`mkdir -p` if needed). Compute a concrete `SPEC_PATH = docs/superpowers/specs/<YYYY-MM-DD>-<slug>-design.md` using today's date and the slug. If that path already exists, append `-2`, `-3`, … before `-design.md` until you find a free path; hold the resolved path in `SPEC_PATH`.
+4. Invoke `superpowers:brainstorming` with the user's description and the override above. Instruct it to write the spec to `SPEC_PATH`.
+5. On return, confirm the spec file exists at `SPEC_PATH`. If brainstorming wrote it elsewhere, move it to `SPEC_PATH` and update the held spec path. If brainstorming returned only in-chat content without writing a file, write it yourself to `SPEC_PATH`. If brainstorming announced `superpowers:writing-plans` (auto-chained despite the override), apply the Operating Mode failure-detection rule — stop and report.
 
 ### Phase 2: Plan
 
@@ -54,7 +56,7 @@ If a sub-skill ignores an override (announces a chained skill we did not authori
 1. Invoke `superpowers:subagent-driven-development` with plan path and the do-not-finish override.
 2. SDD runs per-task TDD (RED-GREEN-REFACTOR + per-task spec review + per-task code quality review) and a final whole-implementation code review.
 3. If SDD reports a `BLOCKED` task it cannot resolve, surface the implementer's blocker message to the user. Do not auto-proceed.
-4. After SDD returns, verify there is at least one implementation commit since Phase 1 (`git log $BASE_SHA..HEAD --oneline` is non-empty, using the `BASE_SHA` captured in Phase 1 step 1) and `git status` is clean. If not, commit pending work or stop and report — do not proceed to Phase 5.
+4. After SDD returns, verify there is at least one implementation commit since Phase 1 (`git log $BASE_SHA..HEAD --oneline` is non-empty, using the `BASE_SHA` captured in Phase 1 step 1) and the working tree is clean per the Operating Mode cleanliness rule. If implementation work is uncommitted, commit it or stop and report — do not proceed to Phase 5.
 
 ### Phase 5: Audit gate (optional)
 
@@ -68,7 +70,7 @@ If a sub-skill ignores an override (announces a chained skill we did not authori
 
 ### Phase 6: Ship
 
-1. Verify `git status` shows a clean working tree (commit any pending Phase 5 edits first). Push and create draft PR.
+1. Verify the working tree is clean per the Operating Mode cleanliness rule (commit any pending Phase 5 edits first). Push and create draft PR.
 2. Invoke `/ci --max 10`. Mandatory. Don't run CI scripts directly or inline CI logic — the `/ci` skill and its scripts handle all detection and polling.
 3. `/ci` presents completion options:
    - **Mark ready** → remove draft status, proceed to the final user gate below (step 5).
