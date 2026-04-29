@@ -65,7 +65,7 @@ Cleanliness checks (Phase 4 step 4, Phase 6 step 1) refer to working-tree change
 3. `AskUserQuestion` with three options:
    - **Run audit** — `/audit --diff --no-handoff` on committed changes (full personas, no `--core`). Fix findings via targeted edits, commit, then re-present this gate.
    - **Skip** — proceed to Phase 6.
-   - **Self-fix** *(no audit personas)* — orchestrator addresses concerns directly via targeted edits, commits, verifies `git status` is clean, then re-presents this gate. Do not re-invoke SDD for a full re-run.
+   - **Self-fix** *(no audit personas)* — orchestrator addresses concerns directly via targeted edits, commits, verifies the working tree is clean per the Operating Mode cleanliness rule, then re-presents this gate. Do not re-invoke SDD for a full re-run.
 4. If audit findings require plan-scope changes (new files, new modules, redesign), return to Phase 3 for re-approval — only that path re-enters Phase 4 (SDD).
 
 ### Phase 6: Ship
