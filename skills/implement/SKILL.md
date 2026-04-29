@@ -1,109 +1,105 @@
 ---
 name: implement
-description: Full development workflow — brainstorm, plan, audit, simplify, build, ship. Orchestrates /brainstorming (or /brainstorm-team), /audit, /simplify, and /ci into a repeatable loop from idea to merged PR. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
+description: Full development workflow from idea to merged PR. Orchestrates superpowers:brainstorming, superpowers:writing-plans, superpowers:subagent-driven-development, /audit (optional), and /ci (mandatory) into sequential phases. Use when building, developing, creating, implementing, shipping, delivering, or coding a feature end-to-end from plan to merged PR.
 ---
 
 # /implement [description]
 
 ## Purpose
 
-End-to-end workflow from idea to merged PR. Orchestrates `/brainstorming` (or `/brainstorm-team`), `/audit`, `/simplify`, and `/ci` into sequential phases.
+End-to-end workflow from idea to merged PR. Orchestrates `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`, `/audit` (optional), and `/ci` (mandatory) into sequential phases.
 
 Prevents: silently skipping phases, committing to main, implementing without a plan, shipping without review.
 
-Both audit phases (4 and 6) have user gates. The agent never skips an audit without explicit user approval.
+`/audit` (Phase 5) has a user gate — agent recommends but never auto-skips. `/ci` (Phase 6) is always mandatory.
 
 ## Operating Mode
 
 You are an **orchestrator** — delegate to sub-skills, gate on user approval between phases. Never implement without a plan. Never commit to main directly.
 
-All work happens in a worktree. Enter in Phase 2, exit in Phase 8 (if `/ci` merges) or Phase 9 (`remove` on merge, `keep` otherwise).
+All work happens in a worktree. Enter in Phase 1, exit in Phase 6 (if `/ci` merges) or via the final user gate (`remove` on merge, `keep` otherwise).
 
 Name the worktree from the description (lowercase, hyphens, max 30 chars). If collision, append `-2`, `-3`, etc.
 
+When invoking superpowers sub-skills, pass explicit overrides:
+
+- `superpowers:brainstorming`: do NOT commit the spec; return control to /implement after spec approval — do NOT auto-chain to `superpowers:writing-plans`.
+- `superpowers:writing-plans`: do NOT commit the plan.
+- `superpowers:subagent-driven-development`: stop after the final code reviewer subagent; do NOT invoke `superpowers:finishing-a-development-branch`. Return control to /implement.
+
+If a sub-skill ignores an override (announces a chained skill we did not authorize, or pushes/creates a PR before Phase 6), stop, report the conflict by name, and ask the user how to recover. Do not attempt to undo.
+
+### Operating Mode cleanliness rule
+
+When Phase 4 step 4, Phase 5 Self-fix, or Phase 6 step 1 says to run a cleanliness check, use `git status --porcelain` in the worktree.
+
+The worktree is considered **clean** only if that command shows no changes **outside** `docs/superpowers/specs/` and `docs/superpowers/plans/`.
+
+Spec and plan files under those two paths are intentionally untracked scratch artifacts (per their no-commit overrides) and do not block progression.
+
 ## The Process
 
-### Phase 1: Brainstorm
+### Phase 1: Worktree + Brainstorm
 
-1. If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is set to `1`, `AskUserQuestion` to choose brainstorm mode:
-   - **/brainstorming** (default) — single-agent structured dialogue.
-   - **/brainstorm-team** — multi-perspective Agent Teams exploration.
-   Otherwise, run `/brainstorming` directly.
-2. Run the selected brainstorming skill to explore the idea. Both modes produce a design summary (understanding, assumptions, decision log) presented in-chat.
-3. `AskUserQuestion` for additional context before planning.
+1. `EnterWorktree` with slugified description. Capture the worktree's starting commit SHA as `BASE_SHA` (used in Phase 4 to verify implementation commits).
+2. Configure git identity if empty (try `git log -1`, fall back to global config, abort if still empty).
+3. Ensure `docs/superpowers/specs/` exists inside the worktree (`mkdir -p` if needed). Compute a concrete `SPEC_PATH = docs/superpowers/specs/<YYYY-MM-DD>-<slug>-design.md` using today's date and the slug. If that path already exists, append `-2`, `-3`, … before `-design.md` until you find a free path; hold the resolved path in `SPEC_PATH`.
+4. Invoke `superpowers:brainstorming` with the user's description and the override above. Instruct it to write the spec to `SPEC_PATH`.
+5. On return, confirm the spec file exists at `SPEC_PATH`. If brainstorming wrote it elsewhere, move it to `SPEC_PATH` and update the held spec path. If brainstorming returned only in-chat content without writing a file, write it yourself to `SPEC_PATH`. If brainstorming announced `superpowers:writing-plans` (auto-chained despite the override), apply the Operating Mode failure-detection rule — stop and report.
 
 ### Phase 2: Plan
 
-1. `EnterWorktree` with slugified description.
-2. Configure git identity if empty (try `git log -1`, fall back to global config, abort if still empty).
-3. Enter plan mode.
-4. Write implementation plan from Phase 1 design.
-5. Validate all `skills/*/SKILL.md` for consistency — include fixes in plan.
-6. `AskUserQuestion` for unresolved questions.
+1. Ensure `docs/superpowers/plans/` exists inside the worktree (`mkdir -p` if needed). Compute a concrete `PLAN_PATH = docs/superpowers/plans/<YYYY-MM-DD>-<slug>.md` using today's date and the slug. If that path already exists, append `-2`, `-3`, … before `.md` until you find a free path; hold the resolved path in `PLAN_PATH`.
+2. Invoke `superpowers:writing-plans` with `SPEC_PATH` and the no-commit override. Instruct it to write the plan to `PLAN_PATH`.
+3. On return, confirm the plan file exists at `PLAN_PATH` (move it there if writing-plans wrote elsewhere).
+4. If the plan touches any `skills/*/SKILL.md`, validate sibling skill files for consistency — fold any fixes into the plan.
 
 ### Phase 3: Gate — user approves plan
 
-1. `ExitPlanMode` to present the plan. Phase 4 may revise it.
-2. `AskUserQuestion` for explicit approval.
+1. Surface `PLAN_PATH` and a brief summary of its task list.
+2. `AskUserQuestion`: **approve** / **refine** (return to Phase 2 to revise).
 
-### Phase 4: Pre-implementation audit
+### Phase 4: Implement (TDD via SDD)
 
-1. `AskUserQuestion` with three options:
-   - **Run audit** — proceed with pre-implementation audit.
-   - **Skip audit** — proceed directly to Phase 5 (implementation).
-   - **Refine plan** — return to Phase 2 step 3 (enter plan mode, revise plan, then Phase 3 re-approval and repeat Phase 4).
-2. If run audit: `/audit --core --no-handoff [primary-target-directory]` from the plan.
-3. If run audit: fix findings. If plan scope changes, return to Phase 3 for re-approval.
+1. Invoke `superpowers:subagent-driven-development` with `PLAN_PATH` and the do-not-finish override.
+2. SDD runs per-task TDD (RED-GREEN-REFACTOR + per-task spec review + per-task code quality review) and a final whole-implementation code review.
+3. If SDD reports a `BLOCKED` task it cannot resolve, surface the implementer's blocker message to the user. Do not auto-proceed.
+4. After SDD returns, verify there is at least one implementation commit since Phase 1 (`git log $BASE_SHA..HEAD --oneline` is non-empty, using the `BASE_SHA` captured in Phase 1 step 1) and the working tree is clean per the Operating Mode cleanliness rule. If implementation work is uncommitted, commit it or stop and report — do not proceed to Phase 5.
 
-### Phase 5: Implement
+### Phase 5: Audit gate (optional)
 
-1. Build the feature following the plan. Only modify files in the plan.
-2. Commit locally — do not push yet.
-
-### Phase 6: Audit diff
-
-1. Assess the committed diff: size (files/lines changed), complexity (new logic, refactors, API surface changes), and risk areas (concurrency, security, data handling).
-2. Based on the assessment, recommend **run audit** or **skip to simplify** with a one-line rationale.
+1. Assess the committed diff: size (files/lines), complexity (new logic, refactors, API surface), risk areas (concurrency, security, data handling).
+2. Recommend **run audit** or **skip to ship** with a one-line rationale.
 3. `AskUserQuestion` with three options:
-   - **Run audit** — run `/audit --diff --no-handoff` on committed changes (full personas — no `--core`). Fix findings and commit.
-   - **Skip to simplify** — proceed directly to Phase 7.
-   - **Iterate on implementation** — return to Phase 5 to revise, then re-present this gate.
-4. Print one-line status summary.
+   - **Run audit** — `/audit --diff --no-handoff` on committed changes (full personas, no `--core`). Fix findings via targeted edits, commit, then re-present this gate.
+   - **Skip** — proceed to Phase 6.
+   - **Self-fix** *(no audit personas)* — orchestrator addresses concerns directly via targeted edits, commits, verifies the working tree is clean per the Operating Mode cleanliness rule, then re-presents this gate. Do not re-invoke SDD for a full re-run.
+4. If audit findings require plan-scope changes (new files, new modules, redesign), return to Phase 3 for re-approval — only that path re-enters Phase 4 (SDD).
 
-### Phase 7: Simplify
+### Phase 6: Ship
 
-1. Run `/simplify` on changed code.
-2. Fix issues and commit.
-3. `AskUserQuestion` for approval before pushing.
-
-### Phase 8: Ship
-
-1. Push and create draft PR.
-2. Invoke the `/ci --max 10` skill command. Do not run CI scripts directly or inline CI logic — the `/ci` skill and its scripts handle all detection and polling.
+1. Verify the working tree is clean per the Operating Mode cleanliness rule (commit any pending Phase 5 edits first). Push and create draft PR.
+2. Invoke `/ci --max 10`. Mandatory. Don't run CI scripts directly or inline CI logic — the `/ci` skill and its scripts handle all detection and polling.
 3. `/ci` presents completion options:
-   - **Mark ready** → remove draft status, proceed to Phase 9.
-   - **Clean up and reopen** → squash commits, force-push, close and reopen PR. Re-fetch new PR URL, proceed to Phase 9.
-   - **Merge and close** _(only if `merge_state` is `CLEAN`)_ → follow `/ci` Completion merge steps, then `ExitWorktree remove` with `discard_changes: true` (squash SHA differs from local), `git pull` (ExitWorktree returns to main). Skip Phase 9.
+   - **Mark ready** → remove draft status, proceed to the final user gate below (step 5).
+   - **Clean up and reopen** → squash commits, force-push, close + reopen PR. Re-fetch new PR URL, proceed to the final user gate below (step 5).
+   - **Merge and close** _(only if `merge_state` is `CLEAN`)_ → follow `/ci` Completion merge steps, then `ExitWorktree remove` with `discard_changes: true` (squash SHA differs from local), `git pull` (returns to main).
 4. If merge fails (PR `state` from `gh pr view --json state` is not `MERGED` during `/ci` completion verification): keep worktree, report error with PR URL, stop. User must resolve blocking checks or conflicts before retry.
+5. User gate (skip if already merged via Merge-and-close): report PR URL and status. `AskUserQuestion`: **approve merge** (then follow `/ci` Completion merge steps + `ExitWorktree remove` with `discard_changes: true` + `git pull`) or **keep worktree** (`ExitWorktree keep`).
 
-### Phase 9: Gate — user decides
-
-1. Report PR URL and status.
-2. `AskUserQuestion`: approve merge, or keep worktree for later.
-3. On merge approval: follow `/ci` Completion merge steps, then `ExitWorktree remove` with `discard_changes: true` (squash SHA differs from local), `git pull` (ExitWorktree returns to main).
-4. Otherwise: `ExitWorktree keep`.
-
-## Exit Criteria
+## Exit Criteria (Hard Stop)
 
 - PR merged and worktree removed, OR
 - Worktree kept for later work
 
-## Key Principles
+## Key Principles (Non-Negotiable)
 
-- Follow phases in order. Never reorder. Audit phases (4 and 6) are never skipped without explicit user approval at their respective gates. Never skip automatically based on agent reasoning.
+- Follow phases in order. Never reorder. The audit phase (5) is never skipped without explicit user approval at its gate. Never skip automatically based on agent reasoning.
 - Never commit directly to main.
 - Always gate on user approval before implementation and merge.
 - Only modify files identified in the plan.
 - Keep changes minimal and focused.
 - Never skip `/ci` — CI detection is handled by the scripts.
-- Phase 8 is mandatory regardless of change size, type, or perceived risk. The agent never assesses whether CI is needed — it always is.
+- Phase 6 is mandatory regardless of change size, type, or perceived risk.
+- Never invoke `superpowers:finishing-a-development-branch` — disposition is the orchestrator's job.
+- When invoking superpowers sub-skills, always pass the override instructions described in Operating Mode.
