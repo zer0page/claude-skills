@@ -36,12 +36,12 @@ If a sub-skill ignores an override (announces a chained skill we did not authori
 1. `EnterWorktree` with slugified description.
 2. Configure git identity if empty (try `git log -1`, fall back to global config, abort if still empty).
 3. Invoke `superpowers:brainstorming` with the user's description and the override above.
-4. On return, hold the spec path (inside the worktree) and proceed to Phase 2.
+4. On return, hold the spec path (inside the worktree) and proceed to Phase 2. If brainstorming announced `superpowers:writing-plans` (auto-chained despite the override), apply the Operating Mode failure-detection rule — stop and report.
 
 ### Phase 2: Plan
 
 1. Invoke `superpowers:writing-plans` with the spec path and the no-commit override.
-2. Validate all `skills/*/SKILL.md` for consistency — fold any fixes into the plan.
+2. If the plan touches any `skills/*/SKILL.md`, validate sibling skill files for consistency — fold any fixes into the plan.
 
 ### Phase 3: Gate — user approves plan
 
