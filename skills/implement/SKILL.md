@@ -29,7 +29,13 @@ When invoking superpowers sub-skills, pass explicit overrides:
 
 If a sub-skill ignores an override (announces a chained skill we did not authorize, or pushes/creates a PR before Phase 6), stop, report the conflict by name, and ask the user how to recover. Do not attempt to undo.
 
-Cleanliness checks (Phase 4 step 4, Phase 6 step 1) refer to working-tree changes **outside** `docs/superpowers/specs/` and `docs/superpowers/plans/`. Spec and plan files in those paths are intentionally untracked scratch artifacts (per their no-commit overrides) and do not block progression.
+### Operating Mode cleanliness rule
+
+When Phase 4 step 4, Phase 5 Self-fix, or Phase 6 step 1 says to run a cleanliness check, use `git status --porcelain` in the worktree.
+
+The worktree is considered **clean** only if that command shows no changes **outside** `docs/superpowers/specs/` and `docs/superpowers/plans/`.
+
+Spec and plan files under those two paths are intentionally untracked scratch artifacts (per their no-commit overrides) and do not block progression.
 
 ## The Process
 
@@ -43,17 +49,19 @@ Cleanliness checks (Phase 4 step 4, Phase 6 step 1) refer to working-tree change
 
 ### Phase 2: Plan
 
-1. Invoke `superpowers:writing-plans` with the spec path and the no-commit override.
-2. If the plan touches any `skills/*/SKILL.md`, validate sibling skill files for consistency — fold any fixes into the plan.
+1. Ensure `docs/superpowers/plans/` exists inside the worktree (`mkdir -p` if needed). Compute a concrete `PLAN_PATH = docs/superpowers/plans/<YYYY-MM-DD>-<slug>.md` using today's date and the slug. If that path already exists, append `-2`, `-3`, … before `.md` until you find a free path; hold the resolved path in `PLAN_PATH`.
+2. Invoke `superpowers:writing-plans` with `SPEC_PATH` and the no-commit override. Instruct it to write the plan to `PLAN_PATH`.
+3. On return, confirm the plan file exists at `PLAN_PATH` (move it there if writing-plans wrote elsewhere).
+4. If the plan touches any `skills/*/SKILL.md`, validate sibling skill files for consistency — fold any fixes into the plan.
 
 ### Phase 3: Gate — user approves plan
 
-1. Surface the plan file path written by `superpowers:writing-plans` and a brief summary of its task list.
+1. Surface `PLAN_PATH` and a brief summary of its task list.
 2. `AskUserQuestion`: **approve** / **refine** (return to Phase 2 to revise).
 
 ### Phase 4: Implement (TDD via SDD)
 
-1. Invoke `superpowers:subagent-driven-development` with plan path and the do-not-finish override.
+1. Invoke `superpowers:subagent-driven-development` with `PLAN_PATH` and the do-not-finish override.
 2. SDD runs per-task TDD (RED-GREEN-REFACTOR + per-task spec review + per-task code quality review) and a final whole-implementation code review.
 3. If SDD reports a `BLOCKED` task it cannot resolve, surface the implementer's blocker message to the user. Do not auto-proceed.
 4. After SDD returns, verify there is at least one implementation commit since Phase 1 (`git log $BASE_SHA..HEAD --oneline` is non-empty, using the `BASE_SHA` captured in Phase 1 step 1) and the working tree is clean per the Operating Mode cleanliness rule. If implementation work is uncommitted, commit it or stop and report — do not proceed to Phase 5.
