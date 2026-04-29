@@ -17,7 +17,7 @@ Reusable [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills fo
 ## Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) **v2.1.0+** (skills support)
-- [superpowers](https://github.com/obra/superpowers) plugin — required for `/implement` (provides `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`)
+- [superpowers](https://github.com/obra/superpowers) plugin — required for `/implement` (provides `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`). Install via Claude Code's plugin system; see the superpowers repo for install instructions. Without it, `/implement` will halt with a "skill not found" error when invoking `superpowers:brainstorming`.
 - `git`
 - `gh` ([GitHub CLI](https://cli.github.com/)) — required for `/ci`
 - `jq` — required for `./install` to auto-configure `~/.claude/settings.json`

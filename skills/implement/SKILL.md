@@ -45,7 +45,7 @@ If a sub-skill ignores an override (announces a chained skill we did not authori
 
 ### Phase 3: Gate — user approves plan
 
-1. `ExitPlanMode` to present the plan.
+1. Surface the plan file path written by `superpowers:writing-plans` and a brief summary of its task list.
 2. `AskUserQuestion`: **approve** / **refine** (return to Phase 2 to revise).
 
 ### Phase 4: Implement (TDD via SDD)
@@ -59,9 +59,9 @@ If a sub-skill ignores an override (announces a chained skill we did not authori
 1. Assess the committed diff: size (files/lines), complexity (new logic, refactors, API surface), risk areas (concurrency, security, data handling).
 2. Recommend **run audit** or **skip to ship** with a one-line rationale.
 3. `AskUserQuestion` with three options:
-   - **Run audit** — `/audit --diff --no-handoff` on committed changes (full personas, no `--core`). Fix findings via targeted edits + commits.
+   - **Run audit** — `/audit --diff --no-handoff` on committed changes (full personas, no `--core`). Fix findings via targeted edits, commit, then re-present this gate.
    - **Skip** — proceed to Phase 6.
-   - **Revise diff** — orchestrator addresses concerns directly via targeted edits + commits, then re-presents this gate. Do not re-invoke SDD for a full re-run.
+   - **Self-fix** *(no audit personas)* — orchestrator addresses concerns directly via targeted edits, commits, verifies `git status` is clean, then re-presents this gate. Do not re-invoke SDD for a full re-run.
 4. If audit findings require plan-scope changes (new files, new modules, redesign), return to Phase 3 for re-approval — only that path re-enters Phase 4 (SDD).
 
 ### Phase 6: Ship
@@ -69,18 +69,18 @@ If a sub-skill ignores an override (announces a chained skill we did not authori
 1. Push and create draft PR.
 2. Invoke `/ci --max 10`. Mandatory. Don't run CI scripts directly or inline CI logic — the `/ci` skill and its scripts handle all detection and polling.
 3. `/ci` presents completion options:
-   - **Mark ready** → remove draft status, proceed to user gate (step 5).
-   - **Clean up and reopen** → squash commits, force-push, close + reopen PR. Re-fetch new PR URL, proceed to user gate (step 5).
+   - **Mark ready** → remove draft status, proceed to the final user gate below (step 5).
+   - **Clean up and reopen** → squash commits, force-push, close + reopen PR. Re-fetch new PR URL, proceed to the final user gate below (step 5).
    - **Merge and close** _(only if `merge_state` is `CLEAN`)_ → follow `/ci` Completion merge steps, then `ExitWorktree remove` with `discard_changes: true` (squash SHA differs from local), `git pull` (returns to main).
 4. If merge fails (PR `state` from `gh pr view --json state` is not `MERGED` during `/ci` completion verification): keep worktree, report error with PR URL, stop. User must resolve blocking checks or conflicts before retry.
 5. User gate (skip if already merged via Merge-and-close): report PR URL and status. `AskUserQuestion`: **approve merge** (then follow `/ci` Completion merge steps + `ExitWorktree remove` with `discard_changes: true` + `git pull`) or **keep worktree** (`ExitWorktree keep`).
 
-## Exit Criteria
+## Exit Criteria (Hard Stop)
 
 - PR merged and worktree removed, OR
 - Worktree kept for later work
 
-## Key Principles
+## Key Principles (Non-Negotiable)
 
 - Follow phases in order. Never reorder. The audit phase (5) is never skipped without explicit user approval at its gate. Never skip automatically based on agent reasoning.
 - Never commit directly to main.
