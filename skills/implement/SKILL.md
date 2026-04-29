@@ -33,10 +33,11 @@ If a sub-skill ignores an override (announces a chained skill we did not authori
 
 ### Phase 1: Worktree + Brainstorm
 
-1. `EnterWorktree` with slugified description.
+1. `EnterWorktree` with slugified description. Capture the worktree's starting commit SHA as `BASE_SHA` (used in Phase 4 to verify implementation commits).
 2. Configure git identity if empty (try `git log -1`, fall back to global config, abort if still empty).
-3. Invoke `superpowers:brainstorming` with the user's description and the override above. Instruct it to write the spec to `docs/superpowers/specs/YYYY-MM-DD-<slug>-design.md` inside the worktree.
-4. On return, confirm the spec file exists at the returned path (must be inside the worktree). If brainstorming returned only in-chat content without writing the file, write it yourself to the canonical path before proceeding. If brainstorming announced `superpowers:writing-plans` (auto-chained despite the override), apply the Operating Mode failure-detection rule — stop and report.
+3. Ensure `docs/superpowers/specs/` exists inside the worktree (`mkdir -p` if needed).
+4. Invoke `superpowers:brainstorming` with the user's description and the override above. Instruct it to write the spec to `docs/superpowers/specs/YYYY-MM-DD-<slug>-design.md` inside the worktree.
+5. On return, confirm the spec file exists at the canonical path (`docs/superpowers/specs/YYYY-MM-DD-<slug>-design.md`). If brainstorming wrote it elsewhere, move it to the canonical path and update the held spec path. If brainstorming returned only in-chat content without writing a file, write it yourself to the canonical path. If brainstorming announced `superpowers:writing-plans` (auto-chained despite the override), apply the Operating Mode failure-detection rule — stop and report.
 
 ### Phase 2: Plan
 
@@ -53,7 +54,7 @@ If a sub-skill ignores an override (announces a chained skill we did not authori
 1. Invoke `superpowers:subagent-driven-development` with plan path and the do-not-finish override.
 2. SDD runs per-task TDD (RED-GREEN-REFACTOR + per-task spec review + per-task code quality review) and a final whole-implementation code review.
 3. If SDD reports a `BLOCKED` task it cannot resolve, surface the implementer's blocker message to the user. Do not auto-proceed.
-4. After SDD returns, verify there is at least one implementation commit since Phase 1 (`git log <base>..HEAD --oneline` is non-empty) and `git status` is clean. If not, commit pending work or stop and report — do not proceed to Phase 5.
+4. After SDD returns, verify there is at least one implementation commit since Phase 1 (`git log $BASE_SHA..HEAD --oneline` is non-empty, using the `BASE_SHA` captured in Phase 1 step 1) and `git status` is clean. If not, commit pending work or stop and report — do not proceed to Phase 5.
 
 ### Phase 5: Audit gate (optional)
 
