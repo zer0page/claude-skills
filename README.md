@@ -12,13 +12,12 @@ Reusable [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills fo
 |-------|-------------|
 | `/audit` | Multi-perspective code audit — 5 reviewer personas + PM aggregation |
 | `/ci` | Watch CI + bot reviews on a PR, fix failures, push, loop until green |
-| `/brainstorming` | Transform vague ideas into validated designs through structured dialogue |
-| `/implement` | Full dev workflow — plan, audit, build, ship (orchestrates `/brainstorming`, `/audit`, `/ci`, and `/simplify`) |
+| `/implement` | Full dev workflow from idea to merged PR (orchestrates `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`, `/audit`, and `/ci`) |
 
 ## Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) **v2.1.0+** (skills support)
-  - **v2.1.63+** required if using `/implement` (depends on the built-in `/simplify` skill)
+- [superpowers](https://github.com/obra/superpowers) plugin — required for `/implement` (provides `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`)
 - `git`
 - `gh` ([GitHub CLI](https://cli.github.com/)) — required for `/ci`
 - `jq` — required for `./install` to auto-configure `~/.claude/settings.json`
