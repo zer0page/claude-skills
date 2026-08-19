@@ -15,4 +15,5 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - run: bash test_install
+      - run: ./test_skill_format
+      - run: ./test_install
