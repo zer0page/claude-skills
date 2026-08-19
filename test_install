@@ -51,18 +51,24 @@ HOOK_HOME="$TEST_ROOT/hook-home"
 HOME="$HOOK_HOME" "$INSTALL" </dev/null >/dev/null
 [ ! -e "$HOOK_HOME/.claude/settings.json" ] || fail "noninteractive install silently enabled Claude hooks"
 
+mkdir -p "$HOOK_HOME/.claude"
+cat >"$HOOK_HOME/.claude/settings.json" <<'EOF'
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/usr/local/bin/tmux-notify.sh custom"}]}]}}
+EOF
 HOME="$HOOK_HOME" "$INSTALL" --tmux-notify 1 >/dev/null
 [ -L "$HOOK_HOME/.claude/hooks/tmux-notify.sh" ] || fail "Claude tmux hook was not linked"
 if command -v jq >/dev/null; then
-  jq -e '.hooks.Stop[0].hooks[0].command | endswith("tmux-notify.sh notify")' \
+  jq -e 'any(.hooks.Stop[].hooks[].command; endswith("tmux-notify.sh notify"))' \
     "$HOOK_HOME/.claude/settings.json" >/dev/null || fail "Claude Stop hook was not configured"
+  jq -e '[.hooks.Stop[].hooks[].command] | contains(["/usr/local/bin/tmux-notify.sh custom"])' \
+    "$HOOK_HOME/.claude/settings.json" >/dev/null || fail "install removed a user-managed hook"
 fi
 
 HOME="$HOOK_HOME" "$INSTALL" --uninstall >/dev/null
 [ ! -L "$HOOK_HOME/.claude/hooks/tmux-notify.sh" ] || fail "uninstall left the Claude tmux hook"
 if command -v jq >/dev/null; then
-  jq -e 'has("hooks") | not' "$HOOK_HOME/.claude/settings.json" >/dev/null ||
-    fail "uninstall left managed hook settings"
+  jq -e '.hooks.Stop == [{"hooks":[{"type":"command","command":"/usr/local/bin/tmux-notify.sh custom"}]}]' \
+    "$HOOK_HOME/.claude/settings.json" >/dev/null || fail "uninstall did not preserve user-managed hooks"
 fi
 
 echo "Installer tests passed."

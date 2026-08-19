@@ -164,13 +164,13 @@ TEMP="$(mktemp "$(dirname "$SETTINGS_FILE")/settings.json.XXXXXX")"
 trap 'rm -f "$TEMP"' EXIT
 
 if ! jq --arg cmd "$HOME/.claude/hooks/tmux-notify.sh" --arg enabled "$TMUX_NOTIFY" '
-  def strip_managed:
-    map(.hooks = [(.hooks // [])[] | select((.command? // "") | contains("tmux-notify.sh") | not)])
+  def strip_managed($managed):
+    map(.hooks = [(.hooks // [])[] | select((.command? // "") != $managed)])
     | map(select((.hooks | length) > 0));
   .hooks = (if (.hooks | type) == "object" then .hooks else {} end)
-  | .hooks.Stop = ((.hooks.Stop // [] | strip_managed)
+  | .hooks.Stop = ((.hooks.Stop // [] | strip_managed($cmd + " notify"))
       + (if $enabled == "1" then [{"matcher":"","hooks":[{"type":"command","command":($cmd + " notify")}]}] else [] end))
-  | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // [] | strip_managed)
+  | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // [] | strip_managed($cmd + " clear"))
       + (if $enabled == "1" then [{"matcher":"","hooks":[{"type":"command","command":($cmd + " clear")}]}] else [] end))
   | if (.hooks.Stop | length) == 0 then del(.hooks.Stop) else . end
   | if (.hooks.UserPromptSubmit | length) == 0 then del(.hooks.UserPromptSubmit) else . end
