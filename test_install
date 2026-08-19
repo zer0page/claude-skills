@@ -71,4 +71,11 @@ if command -v jq >/dev/null; then
     "$HOOK_HOME/.claude/settings.json" >/dev/null || fail "uninstall did not preserve user-managed hooks"
 fi
 
+NO_SETTINGS_HOME="$TEST_ROOT/no-settings-home"
+mkdir -p "$NO_SETTINGS_HOME/.claude/hooks"
+ln -s "$ROOT/hooks/tmux-notify.sh" "$NO_SETTINGS_HOME/.claude/hooks/tmux-notify.sh"
+HOME="$NO_SETTINGS_HOME" "$INSTALL" --tmux-notify 0 >/dev/null
+[ ! -L "$NO_SETTINGS_HOME/.claude/hooks/tmux-notify.sh" ] || fail "disable left the Claude tmux hook"
+[ ! -e "$NO_SETTINGS_HOME/.claude/settings.json" ] || fail "disable created an empty Claude settings file"
+
 echo "Installer tests passed."

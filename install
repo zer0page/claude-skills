@@ -159,6 +159,10 @@ elif [ -L "$HOOK_TARGET" ] && [[ "$(readlink "$HOOK_TARGET")" == "$HOOKS_SRC/"* 
   echo "  removed $HOOK_TARGET"
 fi
 
+if [ "$TMUX_NOTIFY" = 0 ] && [ ! -f "$SETTINGS_FILE" ]; then
+  exit 0
+fi
+
 [ -f "$SETTINGS_FILE" ] || printf '{}\n' >"$SETTINGS_FILE"
 TEMP="$(mktemp "$(dirname "$SETTINGS_FILE")/settings.json.XXXXXX")"
 trap 'rm -f "$TEMP"' EXIT
