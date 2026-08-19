@@ -78,4 +78,16 @@ HOME="$NO_SETTINGS_HOME" "$INSTALL" --tmux-notify 0 >/dev/null
 [ ! -L "$NO_SETTINGS_HOME/.claude/hooks/tmux-notify.sh" ] || fail "disable left the Claude tmux hook"
 [ ! -e "$NO_SETTINGS_HOME/.claude/settings.json" ] || fail "disable created an empty Claude settings file"
 
+if command -v jq >/dev/null; then
+  USER_NOTIFY_HOME="$TEST_ROOT/user-notify-home"
+  mkdir -p "$USER_NOTIFY_HOME/.claude"
+  cat >"$USER_NOTIFY_HOME/.claude/settings.json" <<'EOF'
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/usr/local/bin/tmux-notify.sh notify"}]}]}}
+EOF
+  HOME="$USER_NOTIFY_HOME" "$INSTALL" </dev/null >/dev/null
+  [ ! -L "$USER_NOTIFY_HOME/.claude/hooks/tmux-notify.sh" ] || fail "user hook was mistaken for a managed hook"
+  jq -e '.hooks.Stop == [{"hooks":[{"type":"command","command":"/usr/local/bin/tmux-notify.sh notify"}]}]' \
+    "$USER_NOTIFY_HOME/.claude/settings.json" >/dev/null || fail "noninteractive install modified a user hook"
+fi
+
 echo "Installer tests passed."

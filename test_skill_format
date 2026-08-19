@@ -14,6 +14,9 @@ _, frontmatter, body = text.split("---", 2)
 
 fields = {}
 for line in frontmatter.strip().splitlines():
+    if not line.strip() or line.lstrip().startswith("#"):
+        continue
+    assert ":" in line, f"invalid frontmatter line: {line}"
     key, value = line.split(":", 1)
     fields[key.strip()] = value.strip()
 

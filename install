@@ -114,7 +114,9 @@ fi
 
 CURRENT_NOTIFY=""
 if [ -f "$SETTINGS_FILE" ] && jq -e . "$SETTINGS_FILE" >/dev/null 2>&1; then
-  CURRENT_NOTIFY="$(jq -r '[.hooks[]?[]?.hooks[]?.command? // empty | select(endswith("tmux-notify.sh notify"))] | if length > 0 then "1" else "" end' "$SETTINGS_FILE")"
+  CURRENT_NOTIFY="$(jq -r --arg managed "$HOME/.claude/hooks/tmux-notify.sh notify" \
+    '[.hooks[]?[]?.hooks[]?.command? // empty | select(. == $managed)] | if length > 0 then "1" else "" end' \
+    "$SETTINGS_FILE")"
 fi
 
 if [ -z "$TMUX_NOTIFY" ]; then
