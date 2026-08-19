@@ -1,56 +1,6 @@
-# Example: Skills Config via settings.json
+# Example: Optional Claude tmux notifications
 
-Configure skill behavior in `~/.claude/settings.json`. The `./install` script sets defaults automatically.
-
-## Review bot
-
-Set the `REVIEW_BOT` env var to control which bot `/ci` requests for automated reviews.
-
-### Default (set by install)
-
-```json
-{
-  "env": {
-    "REVIEW_BOT": "copilot-pull-request-reviewer[bot]"
-  }
-}
-```
-
-### Custom review bot
-
-```json
-{
-  "env": {
-    "REVIEW_BOT": "my-company-reviewer[bot]"
-  }
-}
-```
-
-### CI-only mode (no review bot)
-
-```json
-{
-  "env": {
-    "REVIEW_BOT": "skip"
-  }
-}
-```
-
-Skips all automated review request/wait steps. Only monitors CI pass/fail.
-
-## Agent Teams
-
-Required for `/audit` to spawn reviewer personas as Agent Team teammates.
-
-```json
-{
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  }
-}
-```
-
-Both env vars are set automatically by `./install`.
+The portable audit skill does not require runtime configuration. The optional Claude Code integration adds a marker to the tmux window name when Claude is waiting for input and clears it when you respond.
 
 ## tmux pane notifications
 
@@ -85,7 +35,7 @@ Adds a marker to the tmux window name when Claude is waiting for your input. Cle
 }
 ```
 
-Set automatically by `./install`; the example above uses `$HOME` for readability, but `./install` writes an expanded absolute path into `settings.json`. Disable with `./install --tmux-notify 0`.
+Enable with `./install --tmux-notify 1`. The example above uses `$HOME` for readability, but the installer writes an expanded absolute path into `settings.json`. Disable with `./install --tmux-notify 0`.
 
 ### Customization
 

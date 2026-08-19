@@ -1,30 +1,24 @@
 ![CI](https://github.com/zer0page/claude-skills/actions/workflows/test.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-blueviolet)
 
 # claude-skills
 
-Reusable [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills for development workflows.
+Personal Agent Skills that work with [Amp](https://ampcode.com/) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| `/audit` | Multi-perspective code audit — 5 reviewer personas + PM aggregation |
-| `/ci` | Watch CI + bot reviews on a PR, fix failures, push, loop until green |
-| `/implement` | Full dev workflow from idea to merged PR (orchestrates `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`, `/audit`, and `/ci`) |
+| `audit` | Read-only, multi-perspective code audit with a prioritized final report |
 
 ## Prerequisites
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) **v2.1.0+** (skills support)
-- [superpowers](https://github.com/obra/superpowers) plugin — required for `/implement` (provides `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:subagent-driven-development`). Install via Claude Code's plugin system; see the superpowers repo for install instructions. Without it, `/implement` will halt with a "skill not found" error when invoking `superpowers:brainstorming`.
-- `git`
-- `gh` ([GitHub CLI](https://cli.github.com/)) — required for `/ci`
-- `jq` — required for `./install` to auto-configure `~/.claude/settings.json`
+- Amp or Claude Code with Agent Skills support
+- `jq` only when enabling the optional Claude tmux notification hooks
 
 ## Install
 
-Clone this repo, then symlink skills into your Claude Code environment:
+Clone this repo, then symlink skills into the shared user skill location. Both Amp and Claude Code discover `~/.claude/skills`:
 
 ```bash
 git clone <repo-url> claude-skills
@@ -32,32 +26,20 @@ cd claude-skills
 ./install                     # Global: ~/.claude/skills/
 ./install --project /path     # Project-local: /path/.claude/skills/
 ./install --skill audit       # Just one skill
+./install --skills-only       # Never prompt for or modify Claude hooks/settings
 ./install --uninstall         # Remove symlinks
 ```
 
-## Configuration
+The installer preserves files and links it does not own. Project-local and `--skills-only` installs do not modify global settings.
 
-The `./install` script auto-configures `~/.claude/settings.json` with sensible defaults. You can customize:
+## Optional Claude Code integration
 
-### `/ci` — review bot (`REVIEW_BOT`)
+Running `./install` without `--skills-only` offers to configure tmux pane notifications for Claude Code. To choose explicitly:
 
-Controls which bot `/ci` requests for automated PR reviews. Set in `~/.claude/settings.json`:
-
-```json
-{
-  "env": {
-    "REVIEW_BOT": "copilot-pull-request-reviewer[bot]"
-  }
-}
+```bash
+./install --tmux-notify 1     # Enable
+./install --tmux-notify 0     # Disable
 ```
-
-- Default (set by install): `copilot-pull-request-reviewer[bot]`
-- Custom bot: any bot login (e.g., `my-company-reviewer[bot]`)
-- `skip`: disable automated review requests (CI-only mode; previously `none`)
-
-### `/audit` — Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`)
-
-Enables Agent Teams for `/audit` reviewer personas. Set automatically by `./install`.
 
 ## License
 

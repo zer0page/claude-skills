@@ -1,395 +1,93 @@
 #!/usr/bin/env bash
-# Tests for the install script.
+
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-INSTALL="$SCRIPT_DIR/install"
-TMPDIR_BASE=$(mktemp -d)
-passed=0
-failed=0
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+INSTALL="$ROOT/install"
+TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/claude-skills-test-XXXXXX")"
+trap 'rm -rf "$TEST_ROOT"' EXIT
 
-cleanup() { rm -rf "$TMPDIR_BASE"; }
-trap cleanup EXIT
+fail() {
+  echo "FAIL: $*" >&2
+  exit 1
+}
 
-pass() { passed=$((passed + 1)); echo "  PASS: $1"; }
-fail() { failed=$((failed + 1)); echo "  FAIL: $1"; }
+[ "$(find "$ROOT/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" -eq 1 ] ||
+  fail "the repository should contain only one skill"
+[ -d "$ROOT/skills/audit" ] || fail "audit should be the retained skill"
 
-# Use fake HOME for all tests to avoid touching real ~/.claude/settings.json
-FAKE_HOME="$TMPDIR_BASE/fake_home"
-mkdir -p "$FAKE_HOME"
+HOME="$TEST_ROOT/home" "$INSTALL" --skills-only
+[ -L "$TEST_ROOT/home/.claude/skills/audit" ] || fail "global audit skill was not linked"
+[ ! -e "$TEST_ROOT/home/.claude/settings.json" ] || fail "skills-only modified Claude settings"
+[ ! -e "$TEST_ROOT/home/.claude/hooks/tmux-notify.sh" ] || fail "skills-only installed Claude hooks"
 
-# --- Test: install all skills into a project directory ---
-proj="$TMPDIR_BASE/project1"
-mkdir -p "$proj"
-HOME="$FAKE_HOME" "$INSTALL" --project "$proj" --agent-teams 1 > /dev/null
+ln -s "$ROOT/skills/ci/" "$TEST_ROOT/home/.claude/skills/ci"
+HOME="$TEST_ROOT/home" "$INSTALL" --skills-only >/dev/null
+[ ! -L "$TEST_ROOT/home/.claude/skills/ci" ] || fail "install left a removed personal skill linked"
 
-for skill in "$SCRIPT_DIR"/skills/*/; do
-  name=$(basename "$skill")
-  link="$proj/.claude/skills/$name"
-  if [ -L "$link" ]; then
-    pass "install all — $name symlinked"
-  else
-    fail "install all — $name not found"
-  fi
-done
+PROJECT="$TEST_ROOT/project"
+mkdir -p "$PROJECT"
+HOME="$TEST_ROOT/home" "$INSTALL" --project "$PROJECT" --skills-only
+[ -L "$PROJECT/.claude/skills/audit" ] || fail "project audit skill was not linked"
+[ ! -e "$TEST_ROOT/home/.claude/settings.json" ] || fail "project install modified global settings"
 
-# --- Test: idempotent reinstall ---
-output=$(HOME="$FAKE_HOME" "$INSTALL" --project "$proj" --agent-teams 1 2>&1)
-if echo "$output" | grep -q "already linked"; then
-  pass "idempotent reinstall"
-else
-  fail "idempotent reinstall — expected 'already linked'"
+output=$(HOME="$TEST_ROOT/home" "$INSTALL" --project "$PROJECT" --skills-only)
+case "$output" in
+  *"already linked"*) ;;
+  *) fail "skills-only reinstall was not idempotent" ;;
+esac
+
+HOME="$TEST_ROOT/home" "$INSTALL" --project "$PROJECT" --uninstall
+[ ! -L "$PROJECT/.claude/skills/audit" ] || fail "uninstall left the audit symlink"
+
+if HOME="$TEST_ROOT/home" "$INSTALL" --skill ci --skills-only 2>/dev/null; then
+  fail "removed ci skill was accepted"
+fi
+if HOME="$TEST_ROOT/home" "$INSTALL" --bogus 2>/dev/null; then
+  fail "unknown option was accepted"
 fi
 
-# --- Test: --skill filter installs only one ---
-proj2="$TMPDIR_BASE/project2"
-mkdir -p "$proj2"
-HOME="$FAKE_HOME" "$INSTALL" --project "$proj2" --skill audit --agent-teams 1 > /dev/null
+HOOK_HOME="$TEST_ROOT/hook-home"
+HOME="$HOOK_HOME" "$INSTALL" </dev/null >/dev/null
+[ ! -e "$HOOK_HOME/.claude/settings.json" ] || fail "noninteractive install silently enabled Claude hooks"
 
-if [ -L "$proj2/.claude/skills/audit" ]; then
-  pass "--skill filter — audit installed"
-else
-  fail "--skill filter — audit not installed"
-fi
-
-count=$(find "$proj2/.claude/skills" -maxdepth 1 -type l | wc -l | tr -d ' ')
-if [ "$count" -eq 1 ]; then
-  pass "--skill filter — only one skill installed"
-else
-  fail "--skill filter — expected 1 symlink, got $count"
-fi
-
-# --- Test: uninstall removes symlinks ---
-HOME="$FAKE_HOME" "$INSTALL" --project "$proj" --uninstall > /dev/null
-remaining=$(find "$proj/.claude/skills" -maxdepth 1 -type l 2>/dev/null | wc -l | tr -d ' ')
-if [ "$remaining" -eq 0 ]; then
-  pass "uninstall — all symlinks removed"
-else
-  fail "uninstall — $remaining symlinks remain"
+mkdir -p "$HOOK_HOME/.claude"
+cat >"$HOOK_HOME/.claude/settings.json" <<'EOF'
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/usr/local/bin/tmux-notify.sh custom"}]}]}}
+EOF
+HOME="$HOOK_HOME" "$INSTALL" --tmux-notify 1 >/dev/null
+[ -L "$HOOK_HOME/.claude/hooks/tmux-notify.sh" ] || fail "Claude tmux hook was not linked"
+if command -v jq >/dev/null; then
+  jq -e 'any(.hooks.Stop[].hooks[].command; endswith("tmux-notify.sh notify"))' \
+    "$HOOK_HOME/.claude/settings.json" >/dev/null || fail "Claude Stop hook was not configured"
+  jq -e '[.hooks.Stop[].hooks[].command] | contains(["/usr/local/bin/tmux-notify.sh custom"])' \
+    "$HOOK_HOME/.claude/settings.json" >/dev/null || fail "install removed a user-managed hook"
 fi
 
-# --- Test: skips non-symlink targets ---
-proj3="$TMPDIR_BASE/project3"
-mkdir -p "$proj3/.claude/skills/audit"
-output=$(HOME="$FAKE_HOME" "$INSTALL" --project "$proj3" --skill audit --agent-teams 1 2>&1)
-if echo "$output" | grep -q "skipped"; then
-  pass "skip non-symlink — reported skipped"
-else
-  fail "skip non-symlink — expected 'skipped'"
+HOME="$HOOK_HOME" "$INSTALL" --uninstall >/dev/null
+[ ! -L "$HOOK_HOME/.claude/hooks/tmux-notify.sh" ] || fail "uninstall left the Claude tmux hook"
+if command -v jq >/dev/null; then
+  jq -e '.hooks.Stop == [{"hooks":[{"type":"command","command":"/usr/local/bin/tmux-notify.sh custom"}]}]' \
+    "$HOOK_HOME/.claude/settings.json" >/dev/null || fail "uninstall did not preserve user-managed hooks"
 fi
 
-# --- Test: --skill rejects unknown skill name ---
-if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --skill nonexistent --agent-teams 1 2>/dev/null; then
-  fail "--skill unknown — should have been rejected"
-else
-  pass "--skill unknown — rejected"
+NO_SETTINGS_HOME="$TEST_ROOT/no-settings-home"
+mkdir -p "$NO_SETTINGS_HOME/.claude/hooks"
+ln -s "$ROOT/hooks/tmux-notify.sh" "$NO_SETTINGS_HOME/.claude/hooks/tmux-notify.sh"
+HOME="$NO_SETTINGS_HOME" "$INSTALL" --tmux-notify 0 >/dev/null
+[ ! -L "$NO_SETTINGS_HOME/.claude/hooks/tmux-notify.sh" ] || fail "disable left the Claude tmux hook"
+[ ! -e "$NO_SETTINGS_HOME/.claude/settings.json" ] || fail "disable created an empty Claude settings file"
+
+if command -v jq >/dev/null; then
+  USER_NOTIFY_HOME="$TEST_ROOT/user-notify-home"
+  mkdir -p "$USER_NOTIFY_HOME/.claude"
+  cat >"$USER_NOTIFY_HOME/.claude/settings.json" <<'EOF'
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/usr/local/bin/tmux-notify.sh notify"}]}]}}
+EOF
+  HOME="$USER_NOTIFY_HOME" "$INSTALL" </dev/null >/dev/null
+  [ ! -L "$USER_NOTIFY_HOME/.claude/hooks/tmux-notify.sh" ] || fail "user hook was mistaken for a managed hook"
+  jq -e '.hooks.Stop == [{"hooks":[{"type":"command","command":"/usr/local/bin/tmux-notify.sh notify"}]}]' \
+    "$USER_NOTIFY_HOME/.claude/settings.json" >/dev/null || fail "noninteractive install modified a user hook"
 fi
 
-# --- Test: unknown option exits with error ---
-if HOME="$FAKE_HOME" "$INSTALL" --bogus 2>/dev/null < /dev/null; then
-  fail "unknown option — should have exited 1"
-else
-  pass "unknown option — rejected"
-fi
-
-# --- Test: --agent-teams rejects invalid values ---
-if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --agent-teams 2 2>/dev/null; then
-  fail "--agent-teams 2 — should have been rejected"
-else
-  pass "--agent-teams 2 — rejected"
-fi
-if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --agent-teams yes 2>/dev/null; then
-  fail "--agent-teams yes — should have been rejected"
-else
-  pass "--agent-teams yes — rejected"
-fi
-
-# --- Test: settings.json created when it doesn't exist ---
-echo "--- settings.json tests ---"
-proj_settings="$TMPDIR_BASE/project_settings"
-mkdir -p "$proj_settings"
-HOME="$proj_settings" "$INSTALL" --project "$proj_settings" --agent-teams 1 > /dev/null 2>&1
-if [ -f "$proj_settings/.claude/settings.json" ]; then
-  if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' "$proj_settings/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — created with AGENT_TEAMS"
-  else
-    fail "settings.json — missing AGENT_TEAMS env var"
-  fi
-  if jq -e '.env.REVIEW_BOT == "copilot-pull-request-reviewer[bot]"' "$proj_settings/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — created with REVIEW_BOT"
-  else
-    fail "settings.json — missing REVIEW_BOT env var"
-  fi
-else
-  # jq might not be available — skip gracefully
-  if ! command -v jq &>/dev/null; then
-    pass "settings.json — AGENT_TEAMS skipped (jq not available)"
-    pass "settings.json — REVIEW_BOT skipped (jq not available)"
-  else
-    fail "settings.json — file not created"
-    fail "settings.json — file not created"
-  fi
-fi
-
-# --- Test: settings.json preserves existing keys ---
-proj_merge="$TMPDIR_BASE/project_merge"
-mkdir -p "$proj_merge/.claude"
-echo '{"env":{"MY_CUSTOM_VAR":"hello"},"other_key":"preserved"}' > "$proj_merge/.claude/settings.json"
-HOME="$proj_merge" "$INSTALL" --project "$proj_merge" --agent-teams 1 > /dev/null 2>&1
-if command -v jq &>/dev/null; then
-  if jq -e '.env.MY_CUSTOM_VAR == "hello"' "$proj_merge/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — preserved existing env var"
-  else
-    fail "settings.json — lost existing env var"
-  fi
-  if jq -e '.other_key == "preserved"' "$proj_merge/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — preserved non-env key"
-  else
-    fail "settings.json — lost non-env key"
-  fi
-else
-  pass "settings.json merge — skipped (jq not available)"
-  pass "settings.json merge — skipped (jq not available)"
-fi
-
-# --- Test: settings.json idempotent (existing env vars not overwritten) ---
-proj_idem="$TMPDIR_BASE/project_idem"
-mkdir -p "$proj_idem/.claude"
-echo '{"env":{"REVIEW_BOT":"my-custom-bot[bot]","CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1"}}' > "$proj_idem/.claude/settings.json"
-HOME="$proj_idem" "$INSTALL" --project "$proj_idem" --agent-teams 1 > /dev/null 2>&1
-if command -v jq &>/dev/null; then
-  if jq -e '.env.REVIEW_BOT == "my-custom-bot[bot]"' "$proj_idem/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — did not overwrite existing REVIEW_BOT"
-  else
-    fail "settings.json — overwrote existing REVIEW_BOT"
-  fi
-else
-  pass "settings.json idempotent — skipped (jq not available)"
-fi
-
-# --- Test: settings.json skipped for malformed JSON ---
-proj_bad="$TMPDIR_BASE/project_bad"
-mkdir -p "$proj_bad/.claude"
-echo '{broken json' > "$proj_bad/.claude/settings.json"
-output=$(HOME="$proj_bad" "$INSTALL" --project "$proj_bad" --agent-teams 1 2>&1)
-if echo "$output" | grep -q "merge failed"; then
-  pass "settings.json — warned on malformed JSON"
-else
-  if command -v jq &>/dev/null; then
-    fail "settings.json — should warn on malformed JSON"
-  else
-    pass "settings.json malformed — skipped (jq not available)"
-  fi
-fi
-
-# --- Test: settings.json with .env as non-object (array) ---
-proj_array="$TMPDIR_BASE/project_array"
-mkdir -p "$proj_array/.claude"
-echo '{"env":["old","array"]}' > "$proj_array/.claude/settings.json"
-HOME="$proj_array" "$INSTALL" --project "$proj_array" --agent-teams 1 > /dev/null 2>&1
-if command -v jq &>/dev/null; then
-  if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' "$proj_array/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — recovered from non-object .env"
-  else
-    fail "settings.json — failed to recover from non-object .env"
-  fi
-else
-  pass "settings.json non-object — skipped (jq not available)"
-fi
-
-# --- Test: declining Agent Teams skips that env var ---
-proj_decline="$TMPDIR_BASE/project_decline"
-mkdir -p "$proj_decline"
-HOME="$proj_decline" "$INSTALL" --project "$proj_decline" --agent-teams 0 > /dev/null 2>&1
-if command -v jq &>/dev/null; then
-  if jq -e '.env.REVIEW_BOT' "$proj_decline/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — REVIEW_BOT set when Agent Teams declined"
-  else
-    fail "settings.json — REVIEW_BOT missing when Agent Teams declined"
-  fi
-  if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' "$proj_decline/.claude/settings.json" >/dev/null 2>&1; then
-    fail "settings.json — AGENT_TEAMS should not be set when declined"
-  else
-    pass "settings.json — AGENT_TEAMS not set when declined"
-  fi
-else
-  pass "settings.json decline — skipped (jq not available)"
-  pass "settings.json decline — skipped (jq not available)"
-fi
-
-# --- Test: disabling Agent Teams removes env var ---
-proj_disable="$TMPDIR_BASE/project_disable"
-mkdir -p "$proj_disable/.claude"
-echo '{"env":{"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS":"1","REVIEW_BOT":"copilot-pull-request-reviewer[bot]"}}' > "$proj_disable/.claude/settings.json"
-HOME="$proj_disable" "$INSTALL" --project "$proj_disable" --agent-teams 0 > /dev/null 2>&1
-if command -v jq &>/dev/null; then
-  if jq -e '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS' "$proj_disable/.claude/settings.json" >/dev/null 2>&1; then
-    fail "settings.json — AGENT_TEAMS should be removed after disable"
-  else
-    pass "settings.json — AGENT_TEAMS removed after disable"
-  fi
-  if jq -e '.env.REVIEW_BOT' "$proj_disable/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — REVIEW_BOT preserved after Agent Teams disable"
-  else
-    fail "settings.json — REVIEW_BOT lost after Agent Teams disable"
-  fi
-else
-  pass "settings.json disable — skipped (jq not available)"
-  pass "settings.json disable — skipped (jq not available)"
-fi
-
-# --- Test: re-run shows current config ---
-output=$(HOME="$proj_settings" "$INSTALL" --project "$proj_settings" --agent-teams 1 2>&1)
-if echo "$output" | grep -q "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = 1"; then
-  pass "settings.json — re-run shows current AGENT_TEAMS"
-else
-  if command -v jq &>/dev/null; then
-    fail "settings.json — re-run should show current config"
-  else
-    pass "settings.json re-run — skipped (jq not available)"
-  fi
-fi
-
-# --- Test: graceful when jq is not available ---
-proj_nojq="$TMPDIR_BASE/project_nojq"
-mkdir -p "$proj_nojq"
-output=$(PATH="/usr/bin:/bin" HOME="$proj_nojq" "$INSTALL" --project "$proj_nojq" 2>&1) || true
-if echo "$output" | grep -qi "jq"; then
-  pass "settings.json — warns when jq missing"
-else
-  # jq might be in /usr/bin or /bin — if so this test is not meaningful
-  pass "settings.json — jq available in restricted PATH (test skipped)"
-fi
-
-# --- Test: hook symlink installed ---
-echo "--- hook tests ---"
-proj_hooks="$TMPDIR_BASE/project_hooks"
-mkdir -p "$proj_hooks"
-HOME="$proj_hooks" "$INSTALL" --project "$proj_hooks" --agent-teams 1 --tmux-notify 1 > /dev/null 2>&1
-if [ -L "$proj_hooks/.claude/hooks/tmux-notify.sh" ]; then
-  pass "hooks — tmux-notify.sh symlinked"
-else
-  fail "hooks — tmux-notify.sh not found"
-fi
-
-# --- Test: hook symlink idempotent ---
-output=$(HOME="$proj_hooks" "$INSTALL" --project "$proj_hooks" --agent-teams 1 --tmux-notify 1 2>&1)
-if echo "$output" | grep -Fq "tmux-notify.sh (already linked)"; then
-  pass "hooks — idempotent reinstall"
-else
-  fail "hooks — expected 'tmux-notify.sh (already linked)'"
-fi
-
-# --- Test: hooks added to settings.json ---
-if command -v jq &>/dev/null; then
-  if jq -e '.hooks.Stop[0].hooks[0].command | test("tmux-notify.sh notify")' "$proj_hooks/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — Stop hook added"
-  else
-    fail "settings.json — Stop hook missing"
-  fi
-  if jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | test("tmux-notify.sh clear")' "$proj_hooks/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — UserPromptSubmit hook added"
-  else
-    fail "settings.json — UserPromptSubmit hook missing"
-  fi
-else
-  pass "settings.json hooks — skipped (jq not available)"
-fi
-
-# --- Test: hooks NOT added when disabled ---
-proj_nohooks="$TMPDIR_BASE/project_nohooks"
-mkdir -p "$proj_nohooks"
-HOME="$proj_nohooks" "$INSTALL" --project "$proj_nohooks" --agent-teams 1 --tmux-notify 0 > /dev/null 2>&1
-if command -v jq &>/dev/null; then
-  if jq -e '.hooks' "$proj_nohooks/.claude/settings.json" >/dev/null 2>&1; then
-    fail "settings.json — hooks should not be set when declined"
-  else
-    pass "settings.json — no hooks when tmux-notify declined"
-  fi
-else
-  pass "settings.json no hooks — skipped (jq not available)"
-fi
-
-# --- Test: disabling tmux-notify removes hooks ---
-proj_rmhooks="$TMPDIR_BASE/project_rmhooks"
-mkdir -p "$proj_rmhooks/.claude"
-cat > "$proj_rmhooks/.claude/settings.json" <<'HOOKJSON'
-{"env":{"REVIEW_BOT":"copilot-pull-request-reviewer[bot]"},"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"/home/user/.claude/hooks/tmux-notify.sh notify"}]}],"UserPromptSubmit":[{"matcher":"","hooks":[{"type":"command","command":"/home/user/.claude/hooks/tmux-notify.sh clear"}]}]}}
-HOOKJSON
-HOME="$proj_rmhooks" "$INSTALL" --project "$proj_rmhooks" --agent-teams 1 --tmux-notify 0 > /dev/null 2>&1
-if command -v jq &>/dev/null; then
-  if ! jq empty "$proj_rmhooks/.claude/settings.json" >/dev/null 2>&1; then
-    fail "settings.json — invalid JSON after disable"
-  elif jq -e '.hooks' "$proj_rmhooks/.claude/settings.json" >/dev/null 2>&1; then
-    fail "settings.json — hooks should be removed after disable"
-  else
-    pass "settings.json — hooks removed after disable"
-  fi
-else
-  pass "settings.json hooks disable — skipped (jq not available)"
-fi
-
-# --- Test: user hooks preserved when adding tmux-notify ---
-proj_userhooks="$TMPDIR_BASE/project_userhooks"
-mkdir -p "$proj_userhooks/.claude"
-cat > "$proj_userhooks/.claude/settings.json" <<'USERJSON'
-{"env":{},"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"my-custom-hook.sh"}]}]}}
-USERJSON
-HOME="$proj_userhooks" "$INSTALL" --project "$proj_userhooks" --agent-teams 1 --tmux-notify 1 > /dev/null 2>&1
-if command -v jq &>/dev/null; then
-  if jq -e '.hooks.Stop | length == 2' "$proj_userhooks/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — user hooks preserved alongside tmux-notify"
-  else
-    fail "settings.json — user hooks lost or tmux-notify not added"
-  fi
-  if jq -e '.hooks.Stop[0].hooks[0].command == "my-custom-hook.sh"' "$proj_userhooks/.claude/settings.json" >/dev/null 2>&1; then
-    pass "settings.json — user hook command unchanged"
-  else
-    fail "settings.json — user hook command modified"
-  fi
-else
-  pass "settings.json user hooks — skipped (jq not available)"
-fi
-
-# --- Test: hook uninstall removes symlink ---
-proj_unhook="$TMPDIR_BASE/project_unhook"
-mkdir -p "$proj_unhook"
-HOME="$proj_unhook" "$INSTALL" --project "$proj_unhook" --agent-teams 1 --tmux-notify 1 > /dev/null 2>&1
-HOME="$proj_unhook" "$INSTALL" --project "$proj_unhook" --uninstall > /dev/null 2>&1
-if [ -L "$proj_unhook/.claude/hooks/tmux-notify.sh" ]; then
-  fail "hooks — symlink should be removed after uninstall"
-else
-  pass "hooks — symlink removed after uninstall"
-fi
-
-# --- Test: --tmux-notify 0 removes managed symlink ---
-proj_rmsym="$TMPDIR_BASE/project_rmsym"
-mkdir -p "$proj_rmsym"
-HOME="$proj_rmsym" "$INSTALL" --project "$proj_rmsym" --agent-teams 1 --tmux-notify 1 > /dev/null 2>&1
-if [ -L "$proj_rmsym/.claude/hooks/tmux-notify.sh" ]; then
-  HOME="$proj_rmsym" "$INSTALL" --project "$proj_rmsym" --agent-teams 1 --tmux-notify 0 > /dev/null 2>&1
-  if [ -L "$proj_rmsym/.claude/hooks/tmux-notify.sh" ]; then
-    fail "hooks — symlink should be removed after --tmux-notify 0"
-  else
-    pass "hooks — symlink removed after --tmux-notify 0"
-  fi
-else
-  fail "hooks — symlink not created for --tmux-notify 0 test"
-fi
-
-# --- Test: --tmux-notify rejects invalid values ---
-if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --tmux-notify 2 2>/dev/null; then
-  fail "--tmux-notify 2 — should have been rejected"
-else
-  pass "--tmux-notify 2 — rejected"
-fi
-if HOME="$FAKE_HOME" "$INSTALL" --project "$TMPDIR_BASE" --tmux-notify yes 2>/dev/null; then
-  fail "--tmux-notify yes — should have been rejected"
-else
-  pass "--tmux-notify yes — rejected"
-fi
-
-# --- Summary ---
-echo ""
-echo "$passed passed, $failed failed"
-[ "$failed" -eq 0 ]
+echo "Installer tests passed."
